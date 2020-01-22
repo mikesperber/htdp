@@ -10,13 +10,12 @@
          racket/match
          ; racket/function
          htdp/error
-         lang/private/continuation-mark-key
-	 setup/collects
          lang/private/rewrite-error-message
          (for-syntax #;"requiring from" lang/private/firstorder #;"avoids load cycle")
 	 (except-in deinprogramm/signature/signature signature-violation)
          "test-engine.rkt"
-         "test-info.scm")
+         "test-info.scm"
+	 "srcloc.rkt")
 
 (require (for-syntax stepper/private/syntax-property))
 (require  syntax/macro-testing)
@@ -434,35 +433,6 @@
           [else (define c (send test-engine get-info))
                 (send c check-failed result (check-fail-src result) exn (and (exn? exn) (exn-srcloc exn)))
                 #f])))
-
-; return srcloc associated with exception, in user program, or #f
-(define (exn-srcloc exn)
-  (if (exn:srclocs? exn)
-      (let ([srclocs ((exn:srclocs-accessor exn) exn)])
-	(and (pair? srclocs)
-	     (car srclocs)))
-      (continuation-marks-srcloc (exn-continuation-marks exn))))
-    
-(define (continuation-marks-srcloc marks)
-  (let ([cms (continuation-mark-set->list marks teaching-languages-continuation-mark-key)])
-    (cond
-     [(not cms) '()]
-     [(findf (lambda (mark)
-	       (and mark
-		    (let ([ppath (car mark)])
-		      (or (and (path? ppath)
-			       (not (let ([rel (path->collects-relative ppath)])
-				      (and (pair? rel)
-					   (eq? 'collects (car rel))
-					   (or (equal? #"lang" (cadr rel))
-					       (equal? #"deinprogramm" (cadr rel)))))))
-			  (symbol? ppath)))))
-	     cms)
-      => (lambda (mark)
-	   (apply (lambda (source line col pos span)
-		    (make-srcloc source line col pos span))
-		  mark))]
-     (else #f))))
 
 ;;Wishes
 (struct exn:fail:wish exn:fail (name args))

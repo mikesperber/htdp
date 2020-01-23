@@ -4,7 +4,7 @@
            mzlib/pconvert mzlib/pretty
 	   (for-syntax scheme/base))
   
-  (require (except-in "scheme-tests.rkt" test) "test-display.scm")
+  (require (except-in "racket-tests.rkt" test) "test-display.scm")
   
   (define (make-formatter printer)
     (lambda (value)
@@ -59,6 +59,6 @@
              (send test-info setup-display #f #f)
              (send test-info summarize-results (current-output-port))))))
   
-  (provide test format-value make-formatter (all-from-out "scheme-tests.rkt"))
+  (provide test format-value make-formatter (all-from-out "racket-tests.rkt"))
   
   )

@@ -51,7 +51,7 @@
          "model-settings.rkt"
          "macro-unwind.rkt"
          "lifting.rkt"
-         (prefix-in test-engine: test-engine/scheme-tests)
+         (prefix-in test-engine: test-engine/racket-tests)
          ;; for breakpoint display
          ;; (commented out to allow nightly testing)
          #;"display-break-stuff.rkt"

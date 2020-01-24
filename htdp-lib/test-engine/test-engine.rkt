@@ -148,14 +148,14 @@
     (super-instantiate ())
 
     (define/public (refine-display-class d) (set! display-class d))
-    (define/public (info-class) test-info-base%)
+
     (define/public (set-silence! t) (set! silent-mode t))
 
     (define/public (add-analysis a) (send test-info add-analysis a))
 
     (define/public (setup-info style)
       (set! initial-report-done #f)
-      (set! test-info (make-object (info-class) style)))
+      (set! test-info (make-object test-info% style)))
     (define/pubment (setup-display cur-rep event-space)
       (set! test-display (make-object display-class cur-rep))
       (set! display-rep cur-rep)
@@ -232,9 +232,8 @@
     (define/pubment (run-testcase testcase)
       (inner (void) run-testcase testcase))))
 
-(define test-format (make-parameter (λ (v p) (print v p))))
 (define test-execute (make-parameter #t))
 (define error-handler (make-parameter (lambda (e) (e))))
 (define test-silence (make-parameter #f))
 
-(provide test-engine% test-display-textual% test-format error-handler test-execute test-silence)
+(provide test-engine% test-display-textual% error-handler test-execute test-silence)

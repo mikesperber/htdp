@@ -503,45 +503,6 @@
 
 (define scheme-test-data (make-parameter (list #f #f #f)))
 
-(define signature-test-info%
-  (class* test-info-base% ()
-    
-    (define signature-violations '())
-    
-    (inherit report-failure)
-    
-    (define/pubment (signature-failed obj signature message blame)
-      
-      (let* ([srcloc (continuation-marks-srcloc (current-continuation-marks))]
-             [message
-              (or message
-                  (make-signature-got obj (test-format)))])
-        
-        (set! signature-violations
-              (cons (make-signature-violation obj signature message srcloc blame)
-                    signature-violations)))
-      (report-failure)
-      (inner (void) signature-failed obj signature message))
-    
-    (define/public (failed-signatures) (reverse signature-violations))
-    
-    (inherit add-check-failure)
-    (define/pubment (property-failed result src-info)
-      (report-failure)
-      (add-check-failure (make-property-fail src-info (test-format) result) #f #f))
-    
-    (define/pubment (property-error exn src-info)
-      (report-failure)
-      (add-check-failure (make-property-error src-info (test-format) (exn-message exn) exn) exn (exn-srcloc exn)))
-    
-    (super-instantiate ())))
-
-(define wish-test-info%
-  (class* test-info-base% ()
-    (inherit add-check-failure)
-    
-    (super-instantiate ())))
-
 (define scheme-test%
   (class* test-engine% ()
     (super-instantiate ())
@@ -550,8 +511,6 @@
     
     (field [tests null]
            [test-objs null])
-    
-    (define/override (info-class) signature-test-info%)
     
     (define/public (add-test tst)
       (set! tests (cons tst tests)))
@@ -571,4 +530,4 @@
       (inner (void) run-test test))))
 
 (provide scheme-test-data test-format test-execute test-silence error-handler 
-         signature-test-info% build-test-engine)
+         build-test-engine)

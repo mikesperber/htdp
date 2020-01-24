@@ -4,9 +4,11 @@
          racket/pretty
          racket/port
          racket/list
+         lang/private/continuation-mark-key
          deinprogramm/quickcheck/quickcheck
 	 (except-in deinprogramm/signature/signature signature-violation)
-         "print.ss")
+         "print.ss"
+	 "srcloc.rkt")
 
 (provide (all-defined-out))
 
@@ -50,13 +52,16 @@
 ;; (make-message-error src format (listof string))
 (define-struct (message-error check-fail) (strings))
 
-(define test-info-base%
+(define test-format (make-parameter (λ (v p) (print v p))))
+
+(define test-info%
   (class* object% ()
     (super-instantiate ())
     
     (init-field (style 'check-base))
     (field [analyses null])
-    
+
+    ;; Tests
     (define total-tsts 0)
     (define failed-tsts 0)
     (define total-cks 0)
@@ -67,7 +72,7 @@
     (define wishes null)
     
     (define unreported-failures #f)
-    
+ 
     (define/public (clear-unreported-failures)
       (set! unreported-failures #f))
     
@@ -131,6 +136,32 @@
       (set! failed-tsts (add1 failed-tsts))
       (report-failure)
       (inner (void) test-failed failed-info))
+
+    ;; Signatures
+    (define signature-violations '())
+
+    (define/pubment (signature-failed obj signature message blame)
+      
+      (let* ([srcloc (continuation-marks-srcloc (current-continuation-marks))]
+             [message
+              (or message
+                  (make-signature-got obj (test-format)))])
+        
+        (set! signature-violations
+              (cons (make-signature-violation obj signature message srcloc blame)
+                    signature-violations)))
+      (report-failure)
+      (inner (void) signature-failed obj signature message))
+    
+    (define/public (failed-signatures) (reverse signature-violations))
+    
+    (define/pubment (property-failed result src-info)
+      (report-failure)
+      (add-check-failure (make-property-fail src-info (test-format) result) #f #f))
+    
+    (define/pubment (property-error exn src-info)
+      (report-failure)
+      (add-check-failure (make-property-error src-info (test-format) (exn-message exn) exn) exn (exn-srcloc exn)))
     
     (define/public (add-analysis a) (set! analyses (cons a analyses)))
     

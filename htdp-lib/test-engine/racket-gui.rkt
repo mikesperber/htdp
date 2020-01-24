@@ -1,4 +1,4 @@
-(module scheme-gui scheme/base
+(module racket-gui scheme/base
   
   (require mred framework scheme/class 
            mzlib/pconvert mzlib/pretty

@@ -34,7 +34,7 @@
          "htdp-langs-save-file-prefix.rkt"
          "htdp-langs-interface.rkt"
 
-         (only-in test-engine/scheme-gui make-formatter)
+         (only-in test-engine/racket-gui make-formatter)
          (only-in test-engine/racket-tests
                   scheme-test-data error-handler test-format test-execute display-results
                   build-test-engine)

@@ -135,8 +135,6 @@
 
     (define/public (set-silence! t) (set! silent-mode t))
 
-    (define/public (add-analysis a) (send test-info add-analysis a))
-
     (define/public (setup-info style)
       (set! initial-report-done #f)
       (set! test-info (make-object test-info% style)))

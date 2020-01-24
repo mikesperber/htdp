@@ -59,7 +59,6 @@
     (super-instantiate ())
     
     (init-field (style 'check-base))
-    (field [analyses null])
 
     ;; Tests
     (define total-tsts 0)
@@ -161,14 +160,7 @@
     
     (define/pubment (property-error exn src-info)
       (report-failure)
-      (add-check-failure (make-property-error src-info (test-format) (exn-message exn) exn) exn (exn-srcloc exn)))
-    
-    (define/public (add-analysis a) (set! analyses (cons a analyses)))
-    
-    (define/public (analyze-position src . vals)
-      (for ([a analyses]) (send a analyze src vals)))
-    (define/public (extract-info pred?)
-      (filter pred? (map (lambda (a) (send a provide-info)) analyses)))))
+      (add-check-failure (make-property-error src-info (test-format) (exn-message exn) exn) exn (exn-srcloc exn)))))
 
 ; helper for printing error messages
 (define (print-reason fail)

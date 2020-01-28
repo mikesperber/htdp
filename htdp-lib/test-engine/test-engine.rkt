@@ -209,10 +209,7 @@
 
     (define/pubment (run-test test)
       (set! unreported-tests #t)
-      (inner (void) run-test test))
-
-    (define/pubment (run-testcase testcase)
-      (inner (void) run-testcase testcase))))
+      (inner (void) run-test test))))
 
 (define test-execute (make-parameter #t))
 (define error-handler (make-parameter (lambda (e) (e))))

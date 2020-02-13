@@ -60,92 +60,59 @@
             (send window show #t))))
 
     (define/pubment (insert-test-results editor test-object src-editor)
-      (let* ([style 'check-require] ; FIXME
-             [total-tests (test-object-tests-count test-object)]
-             [total-checks (test-object-checks-count test-object)]
+      (let* ([total-checks (test-object-checks-count test-object)]
              [failed-checks (test-object-failed-checks-count test-object)]
              [violated-signatures (test-object-signature-violations test-object)] ; FIXME name
              [wishes (test-object-wishes test-object)]
              [total-wishes (length wishes)]
-             [total-wish-calls (test-object-called-wishes test-object)]
+             [total-wish-calls (test-object-called-wishes test-object)])
 
-             [check-outcomes
-              (lambda (total failed zero-message ck?)
-                (send editor insert
-                      (cond
-                       [(zero? total) zero-message]
-                       [(= 1 total) 
-                        (string-append
-                         (if ck?
-                             (string-constant test-engine-ran-1-check)
-                             (string-constant test-engine-ran-1-test))
-                         "\n")]
-                       [else 
-                        (format (string-append
-                                 (if ck?
-                                     (string-constant test-engine-ran-n-checks)
-                                     (string-constant test-engine-ran-n-tests))
-                                 "\n")
-                                total)]))
-                (send editor insert
-                      (cond 
-                        [(null? wishes) ""]
-                        [(= 1 total-wishes) (format "Wished for function ~a has not been implemented.\n" (car wishes))]
-                        [(= 2 total-wishes) (format "Wished for functions ~a and ~a have not been implemented.\n" (car wishes) (cadr wishes))]
-                        [else (format "Wished for functions ~a have not been implemented.\n" (format-list wishes))]))
-                (when (> total 0)
-                  (send editor insert
-                        (cond
-                         [(and (zero? failed) (= 1 total))
-                          (string-append (if ck?
-                                             (string-constant test-engine-1-check-passed)
-                                             (string-constant test-engine-1-test-passed))
-                                         "\n\n")]
-                         [(zero? failed) 
-                          (string-append (if ck?
-                                             (string-constant test-engine-all-checks-passed)
-                                             (string-constant test-engine-all-tests-passed))
-                                         "\n\n")]
-                         [(= failed total)
-                          (string-append (if ck?
-                                             (string-constant test-engine-0-checks-passed)
-                                             (string-constant test-engine-0-tests-passed))
-                                         "\n")]
-                         [else (format (string-append
-                                        (if ck?
-                                            (string-constant test-engine-m-of-n-checks-failed)
-                                            (string-constant test-engine-m-of-n-tests-failed))
-                                        "\n\n")
-                                       failed total)])))
-                (send editor insert
-                      (cond
-                       ((null? violated-signatures)
-                        (string-append (string-constant test-engine-no-signature-violations) "\n\n"))
-                       ((null? (cdr violated-signatures))
-                        (string-append (string-constant test-engine-1-signature-violation) "\n\n"))
-                       (else
-                        (format (string-append (string-constant test-engine-n-signature-violations) "\n\n")
-                                (length violated-signatures)))))
-                )]
-
-             [check-outcomes/check
-              (lambda (zero-message)
-                (check-outcomes total-checks failed-checks
-                                zero-message #t))]
-             [check-outcomes/test
-              (lambda (zero-message)
-                (check-outcomes total-checks failed-checks
-                                zero-message #f))])
         (define start-pos (send editor last-position))
-        (case style
-          [(check-require)
-           (check-outcomes/check
-            (string-append (string-constant test-engine-is-unchecked) "\n"))]
-          [(test-check)
-           (check-outcomes/test
-            (string-append (string-constant test-engine-must-be-tested)
-                           "\n"))]
-          [else (check-outcomes/check "")])
+	(send editor insert
+              (cond
+               [(zero? total-checks)
+		(string-append (string-constant test-engine-must-be-tested)
+				       "\n")]
+               [(= 1 total-checks) 
+                (string-append
+		 (string-constant test-engine-ran-1-test)
+                 "\n")]
+               [else 
+                (format (string-append
+			 (string-constant test-engine-ran-n-tests)
+                         "\n")
+                        total-checks)]))
+	(send editor insert
+              (cond 
+               [(null? wishes) ""]
+               [(= 1 total-wishes) (format "Wished for function ~a has not been implemented.\n" (car wishes))]
+               [(= 2 total-wishes) (format "Wished for functions ~a and ~a have not been implemented.\n" (car wishes) (cadr wishes))]
+               [else (format "Wished for functions ~a have not been implemented.\n" (format-list wishes))]))
+	(when (> total-checks 0)
+          (send editor insert
+                (cond
+                 [(and (zero? failed-checks) (= 1 total-checks))
+                  (string-append (string-constant test-engine-1-check-passed)
+                                 "\n\n")]
+                 [(zero? failed-checks) 
+                  (string-append (string-constant test-engine-all-tests-passed)
+                                 "\n\n")]
+                 [(= failed-checks total-checks)
+                  (string-append (string-constant test-engine-0-tests-passed)
+                                 "\n")]
+                 [else (format (string-append
+				(string-constant test-engine-m-of-n-tests-failed)
+                                "\n\n")
+                               failed-checks total-checks)])))
+	(send editor insert
+              (cond
+               ((null? violated-signatures)
+                (string-append (string-constant test-engine-no-signature-violations) "\n\n"))
+               ((null? (cdr violated-signatures))
+                (string-append (string-constant test-engine-1-signature-violation) "\n\n"))
+               (else
+                (format (string-append (string-constant test-engine-n-signature-violations) "\n\n")
+                        (length violated-signatures)))))
 
         (unless (and (zero? total-checks)
                      (null? violated-signatures))

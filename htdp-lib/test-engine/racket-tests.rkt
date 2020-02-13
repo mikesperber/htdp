@@ -8,7 +8,6 @@
 
 (require lang/private/teachprims
          (for-syntax racket/base lang/private/rewrite-error-message)
-         racket/class
          racket/match
          ; racket/function
          htdp/error
@@ -373,7 +372,6 @@
 ;; check-member-of-values-expected: (-> scheme-val) scheme-val src test-engine -> boolean
 (define (check-member-of-values-expected test first-actual actuals src test-engine)
   (error-check (lambda (v) (not (procedure? v))) first-actual CHECK-MEMBER-OF-FUNCTION-FMT #f)
-  (send (send test-engine get-info) add-check)
   (run-and-check (lambda (v2 v1 _) (memf (lambda (i) (teach-equal? v1 i)) v2))
                  (lambda (src format v1 v2 _) (make-not-mem src format v1 v2))
                  test (cons first-actual actuals) #f src test-engine 'check-member-of))
@@ -394,7 +392,6 @@
   (error-check number? max RANGE-MAX-FMT #t) 
   (error-check (lambda (v) (not (procedure? v))) min CHECK-RANGE-FUNCTION-FMT #f)
   (error-check (lambda (v) (not (procedure? v))) max CHECK-RANGE-FUNCTION-FMT #f)
-  (send (send test-engine get-info) add-check)
   (run-and-check (lambda (v2 v1 v3) (and (number? v1) (and (<= v2 v1) (<= v1 v3))))
                  (lambda (src format v1 v2 v3) (make-not-range src format v1 v2 v3))
                  test min max src test-engine 'check-range))

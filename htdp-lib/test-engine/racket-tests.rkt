@@ -433,6 +433,8 @@
 ;;Wishes
 (struct exn:fail:wish exn:fail (name args))
 
+;; FIXME: Everything below needs to move to test-engine.rkt
+
 (define (reset-tests)
   (initialize-test-object!))
 

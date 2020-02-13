@@ -33,41 +33,6 @@
       (and drscheme-frame
            (preferences:get 'test-engine:test-window:docked?)))
     
-    (define/public (report-success)
-      (when current-rep
-        (unless current-tab
-          (set! current-tab (send (send current-rep get-definitions-text) get-tab)))
-        (unless drscheme-frame
-          (set! drscheme-frame (send current-rep get-top-level-window)))
-        (let ([curr-win (and current-tab (send current-tab get-test-window))])
-          (when curr-win
-            (let ([content (make-object (editor:standard-style-list-mixin text%))])
-              (send content lock #t)
-              (when curr-win (send curr-win update-editor content))
-              (when current-tab (send current-tab current-test-editor content))
-              (when (docked?)
-                (send drscheme-frame display-test-panel content)
-                (send curr-win show #f)))))))
-
-    (define/public (display-success-summary port count)
-      (unless (test-silence)
-        (display (case count
-                   [(0) (string-constant test-engine-0-tests-passed)]
-                   [(1) (string-constant test-engine-1-test-passed)]
-                   [(2) (string-constant test-engine-both-tests-passed)]
-                   [else (format (string-constant test-engine-all-n-tests-passed)
-                                 count)])
-                 port)))
-
-    (define/public (display-untested-summary port)
-      (unless (test-silence)
-        (display (string-constant test-engine-should-be-tested) port)
-        (display "\n" port)))
-
-    (define/public (display-disabled-summary port)
-      (display (string-constant test-engine-tests-disabled) port)
-      (display "\n" port))
-    
     (define/public (display-results)
       (let* ([curr-win (and current-tab (send current-tab get-test-window))]
              [window (or curr-win (make-object test-window%))]

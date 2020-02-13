@@ -202,25 +202,6 @@
                    (check-fail-src (failed-check-reason failed-check)))
         (printf "~a" "\n")))
 
-    (define/public (report-success) (void))
-
-    (define/public (display-success-summary port count)
-      (unless (test-silence)
-        (fprintf port "~a test~a passed!\n"
-                 (case count
-                   [(0) "Zero"]
-                   [(1) "The only"]
-                   [(2) "Both"]
-                   [else (format "All ~a" count)])
-                 (if (= count 1) "" "s"))))
-    
-    (define/public (display-untested-summary port)
-      (unless (test-silence)
-        (fprintf port "This program should be tested.\n")))
-
-    (define/public (display-disabled-summary port)
-      (fprintf port "Tests disabled.\n"))
-
     (define/public (next-line) (printf "~a" "\n\t"))
 
     ;; make-link: (listof (U check-fail (U string snip%))) src -> void

@@ -1,5 +1,7 @@
 #lang racket/base
 
+;; Surface syntax foR defining test syntax
+
 ;; *****************************************
 ;; SEE todo.txt FOR HOW TO ADD A NEW FEATURE
 ;; *****************************************
@@ -33,7 +35,6 @@
 ; for other modules implementing check-expect-like forms
 (provide
  (for-syntax check-expect-maker)
- get-test-engine
  exn:fail:wish)
 
 (define INEXACT-NUMBERS-FMT
@@ -92,7 +93,7 @@
       #`(define #,bogus-name
           #,(stepper-syntax-property
              #`(let* ([ns (current-namespace)]
-                      [test-engine (namespace-variable-value 'test~object #f builder ns)])
+                      [test-engine (namespace-variable-value 'test~object #f builder ns)]) ; FIXME: legacy, hard to get rid of
                  (when test-engine
                    (insert-test test-engine
                                 (lambda ()
@@ -132,7 +133,7 @@
                      skipto/cdr skipto/third ;; application of insert-test
                      '(syntax-e cdr cdr syntax-e car) ;; lambda
                      )))
-      #`(let ([test-engine (namespace-variable-value 'test~object #f builder (current-namespace))])
+      #`(let ([test-engine (namespace-variable-value 'test~object #f builder (current-namespace))]) ; FIXME: legacy, hard to get rid of
           (when test-engine
             (insert-test test-engine
                          (lambda ()
@@ -156,6 +157,11 @@
                                         (['stepper-no-lifting-info #t]
                                          ['stepper-hide-reduction #t])
                                       #'test-engine))))))))))
+
+(define (insert-test _ thunk)
+  (add-test! thunk))
+
+(define (builder) #f)
 
 (define-for-syntax (check-context?)
   (let ([c (syntax-local-context)])
@@ -225,10 +231,9 @@
      (raise-syntax-error 'check-satisfied "expects named function in second position." stx)]
     [_ (raise-syntax-error 'check-satisfied (argcount-error-message/stx 2 stx) stx)]))
 
-(define (check-values-property produce-v actual name src test-engine)
+(define (check-values-property produce-v actual name src test-engine_)
   ;; it is okay if actual is a procedure because property testing may use
   ;; it, but it is possibly weird for students
-  (send (send test-engine get-info) add-check)
   (run-and-check
    ;; check
    (lambda (p? v _what-is-this?)
@@ -248,11 +253,10 @@
    actual
    #f
    src
-   test-engine
    (list 'check-satisfied name)))
 
-;; check-random-expected: (-> scheme-val) (-> scheme-val) src test-engine -> boolean
-(define (check-random-values test-maker actual-maker src test-engine)
+;; check-values-expected: (-> scheme-val) (-> scheme-val) src -> boolean
+(define (check-random-values test-maker actual-maker src test-engine_)
   (define rng (make-pseudo-random-generator))
   (define k (modulo (current-milliseconds) (sub1 (expt 2 31))))
   (define actual (parameterize ([current-pseudo-random-generator rng])
@@ -260,7 +264,6 @@
                    (actual-maker)))
   (error-check (lambda (v) (if (number? v) (exact? v) #t))
                actual INEXACT-NUMBERS-FMT #t)
-  (send (send test-engine get-info) add-check)
   (run-and-check (lambda (v1 v2 _) (teach-equal? v1 v2))
                  (lambda (src format v1 v2 _) (make-unequal src format v1 v2))
                  (lambda () (parameterize ([current-pseudo-random-generator rng])
@@ -269,18 +272,16 @@
                  actual
                  #f
                  src
-                 test-engine
                  'check-expect))
 
-;; check-values-expected: (-> scheme-val) scheme-val src test-engine -> boolean
-(define (check-values-expected test actual src test-engine)
+;; check-values-expected: (-> scheme-val) scheme-val src -> boolean
+(define (check-values-expected test actual src test-engine_)
   (error-check (lambda (v) (if (number? v) (exact? v) #t))
                actual INEXACT-NUMBERS-FMT #t)
   (error-check (lambda (v) (not (procedure? v))) actual FUNCTION-FMT #f)
-  (send (send test-engine get-info) add-check)
   (run-and-check (lambda (v1 v2 _) (teach-equal? v1 v2))
                  (lambda (src format v1 v2 _) (make-unequal src format v1 v2))
-                 test actual #f src test-engine 'check-expect))
+                 test actual #f src 'check-expect))
 
 ;;check-within
 (define-syntax (check-within stx)
@@ -292,13 +293,11 @@
                          'comes-from-check-within)]
     [_ (raise-syntax-error 'check-within (argcount-error-message/stx 3 stx) stx)]))
 
-;; check-values-within: (-> scheme-val) scheme-val number src test-engine -> boolean
-(define (check-values-within test actual within src test-engine)
+;; check-values-within: (-> scheme-val) scheme-val number src -> boolean
+(define (check-values-within test actual within src test-engine_)
   (error-check number? within CHECK-WITHIN-INEXACT-FMT #t)
   (error-check (lambda (v) (not (procedure? v))) actual CHECK-WITHIN-FUNCTION-FMT #f)
-  (send (send test-engine get-info) add-check)
   (run-and-check beginner-equal~? make-outofrange test actual within src
-                 test-engine
                  'check-within))
 
 ;; check-error
@@ -315,10 +314,9 @@
     [(_) (raise-syntax-error 'check-error (argcount-error-message/stx 1 stx #t) stx)]
     [_ (raise-syntax-error 'check-error (argcount-error-message/stx 2 stx) stx)]))
 
-;; check-values-error: (-> scheme-val) scheme-val src test-engine -> boolean
-(define (check-values-error test error src test-engine)
+;; check-values-error: (-> scheme-val) scheme-val src -> boolean
+(define (check-values-error test error src)
   (error-check string? error CHECK-ERROR-STR-FMT #t)
-  (send (send test-engine get-info) add-check)
   (let ([result (with-handlers ([exn?
                                  (lambda (e)
                                    (define msg 
@@ -330,25 +328,26 @@
                     (make-expected-error src (test-format) error test-val)))])
     (if (check-fail? result)
         (begin
-          (send (send test-engine get-info) check-failed
-                result (check-fail-src result)
-                (and (incorrect-error? result) (incorrect-error-exn result))
-		#f)
-          #f)
+          (add-check-failure
+	   result
+	   (and (incorrect-error? result) (incorrect-error-exn result))
+	   #f))
         #t)))
+
+(define (add-check-failure fail exn? srcloc?)
+  (add-failed-check! (make-failed-check fail exn? srcloc?)))
 
 ;; check-values-error/no-string: (-> scheme-val) src test-engine -> boolean
 (define (check-values-error/no-string test src test-engine)
-  (send (send test-engine get-info) add-check)
   (let ([result (with-handlers ([exn?
                                  (lambda (e) #t)])
                   (let ([test-val (test)])
                     (make-expected-an-error src (test-format) test-val)))])
     (if (check-fail? result)
         (begin
-          (send (send test-engine get-info) check-failed
-                result (check-fail-src result)
-                #f #f)
+          (add-check-failure
+	   result
+	   #f #f)
           #f)
         #t)))
 
@@ -402,8 +401,9 @@
 
 ;; run-and-check: (scheme-val scheme-val scheme-val -> boolean)
 ;;                (src format scheme-val scheme-val scheme-val -> check-fail)
-;;                ( -> scheme-val) scheme-val scheme-val test-engine symbol? -> boolean
-(define (run-and-check check maker test expect range src test-engine kind)
+;;                ( -> scheme-val) scheme-val scheme-val symbol? -> boolean
+(define (run-and-check check maker test expect range src kind)
+  (add-check! test expect range src kind)
   (match-let ([(list result result-val exn)
                (with-handlers ([exn:fail:wish?
                                 (lambda (e)
@@ -430,26 +430,14 @@
                  (cons (or passes? (maker src (test-format) test-val expect range)) (list test-val #f)))])
     (define failed? (check-fail? result))
     (cond [(not failed?) #t]
-          [else (define c (send test-engine get-info))
-                (send c check-failed result (check-fail-src result) exn (and (exn? exn) (exn-srcloc exn)))
+          [else (add-check-failure result exn (and (exn? exn) (exn-srcloc exn)))
                 #f])))
 
 ;;Wishes
 (struct exn:fail:wish exn:fail (name args))
 
 (define (reset-tests)
-  (let ([test-engine (namespace-variable-value
-                      'test~object #f builder (current-namespace))])
-    (when test-engine
-      (send test-engine reset-info))))
-
-(define (builder)
-  (let ([te (build-test-engine)])
-    (namespace-set-variable-value! 'test~object te (current-namespace))
-    te))
-
-(define (get-test-engine)
-  (namespace-variable-value 'test~object #f builder (current-namespace)))
+  (initialize-test-object!))
 
 (define-syntax (test stx) 
   (syntax-case stx ()
@@ -471,19 +459,20 @@
       #'(run)
       'test-call #t)]))
 
-(define (run) 
-  (let ([test-engine
-         (namespace-variable-value 'test~object #f builder (current-namespace))]) 
-    (and test-engine (send test-engine run))))
+(define (run)
+  (run-tests!))
 
 (define (display-results*)
-  (let ([test-engine (namespace-variable-value 'test~object #f builder (current-namespace))])
-    (and test-engine
-         (let ([display-data (scheme-test-data)])
-           (when (caddr display-data)
-             (send test-engine refine-display-class (caddr display-data)))
-           (send test-engine setup-display (car display-data) (cadr display-data))
-           (send test-engine summarize-results (current-output-port))))))
+  (let ((display-data (scheme-test-data)))
+    (let ((display-rep (car display-data))
+	  (display-event-space (cadr display-data))
+	  (test-display% (caddr display-data)))
+      (display "display-results*" (current-error-port))
+      (newline (current-error-port))
+      (test-display-results! display-rep display-event-space test-display%)))
+  ;;(send test-engine setup-display (car display-data) (cadr display-data))
+  ;;(send test-engine summarize-results (current-output-port))))))
+  'FIXME)
 
 (define-syntax (display-results stx) 
   (syntax-case stx ()
@@ -491,43 +480,10 @@
      (syntax-property
       #'(display-results*)
       'test-call #t)]))
+(provide run-tests display-results test reset-tests)
 
-(provide run-tests display-results test builder reset-tests)
-
-(define (build-test-engine)
-  (let ([engine (make-object scheme-test%)])
-    (send engine setup-info 'test-check)
-    engine))
-
-(define (insert-test test-engine test) (send test-engine add-test test))
-
+;; the teaching languages bind this to something like this:
+;; (list (drscheme:rep:current-rep) drs-eventspace test-display%)
 (define scheme-test-data (make-parameter (list #f #f #f)))
 
-(define scheme-test%
-  (class* test-engine% ()
-    (super-instantiate ())
-    (inherit-field test-info test-display)
-    (inherit setup-info)
-    
-    (field [tests null]
-           [test-objs null])
-    
-    (define/public (add-test tst)
-      (set! tests (cons tst tests)))
-    (define/public (get-info)
-      (unless test-info (send this setup-info 'check-require))
-      test-info)
-    (define/public (reset-info)
-      (set! tests null)
-      #;(send this setup-info 'check-require))
-    
-    (define/augment (run)
-      (inner (void) run)
-      (for ([t (reverse tests)]) (run-test t)))
-    
-    (define/augment (run-test test)
-      (test)
-      (inner (void) run-test test))))
-
-(provide scheme-test-data test-format test-execute test-silence error-handler 
-         build-test-engine)
+(provide scheme-test-data test-format test-execute test-silence error-handler)

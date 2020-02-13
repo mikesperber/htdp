@@ -1,5 +1,7 @@
 #lang racket/base
 
+;; Representation of test and signature failures
+
 (require racket/class
          racket/pretty
          racket/port
@@ -49,118 +51,10 @@
 (define-struct (property-fail check-fail) (result))
 (define-struct (property-error check-fail) (message exn))
 
+;; FIXME: printing stuff below potentially needs to go somewhere else
+
 ;; (make-message-error src format (listof string))
 (define-struct (message-error check-fail) (strings))
-
-(define test-format (make-parameter (λ (v p) (print v p))))
-
-(define test-info%
-  (class* object% ()
-    (super-instantiate ())
-    
-    (init-field (style 'check-base))
-
-    ;; Tests
-    (define total-tsts 0)
-    (define failed-tsts 0)
-    (define total-cks 0)
-    (define failed-cks 0)
-    (define total-called-wishes 0)
-    
-    (define failures null)
-    (define wishes null)
-    
-    (define unreported-failures #f)
- 
-    (define/public (clear-unreported-failures)
-      (set! unreported-failures #f))
-    
-    (define/public (report-failure)
-      (set! unreported-failures #t))
-    
-    (define/public (has-unreported-failures)
-      unreported-failures)
-    
-    (define/public (test-style) style)
-    (define/public (tests-run) total-tsts)
-    (define/public (tests-failed) failed-tsts)
-    (define/public (checks-run) total-cks)
-    (define/public (checks-failed) failed-cks)
-    (define/public (summarize-results)
-      (cond [(and (zero? total-tsts) (zero? total-cks)) 'no-tests]
-            [(and (zero? failed-cks) (zero? failed-tsts)) 'all-passed]
-            [else 'mixed-results]))
-    (define/public (called-wishes) total-called-wishes)
-    
-    (define/public (failed-checks) failures)
-    (define/public (unimplemented-wishes) wishes)
-    
-    (define/pubment (add-wish-call name)
-      (set! total-called-wishes (add1 total-called-wishes))
-      (unless (memq name wishes) (set! wishes (cons name wishes)))
-      (inner (void) add-wish-call name))
-    
-    (define/pubment (add-check)
-      (set! total-cks (add1 total-cks))
-      (inner (void) add-check))
-    
-    (define/pubment (add-test)
-      (set! total-tsts (add1 total-tsts))
-      (inner (void) add-test))
-    
-    (define/pubment (add-check-failure fail exn? srcloc?)
-      (set! failed-cks (add1 failed-cks))
-      (set! failures (cons (make-failed-check fail exn? srcloc?) failures))
-      (inner (void) add-check-failure fail exn? srcloc?))
-    
-    (define/pubment (add-wish name)
-      (unless (memq name wishes)
-        (set! wishes (cons name wishes)))
-      (inner (void) add-wish name))
-    
-    ;; check-failed: (U check-fail (list (U string snip%))) src (U exn false) -> void
-    (define/pubment (check-failed msg src exn? srcloc?)
-      (let ((fail
-             ;; We'd like every caller to make a check-fail object,
-             ;; but some (such as ProfessorJ's run time) cannot because
-             ;; of phase problems.  Therefore, do the coercion here.
-             (if (check-fail? msg)
-                 msg
-                 (make-message-error src #f msg))))
-        (add-check-failure fail exn? srcloc?)
-        (report-failure)
-        (inner (void) check-failed fail src exn? srcloc?)))
-    
-    (define/pubment (test-failed failed-info)
-      (set! failed-tsts (add1 failed-tsts))
-      (report-failure)
-      (inner (void) test-failed failed-info))
-
-    ;; Signatures
-    (define signature-violations '())
-
-    (define/pubment (signature-failed obj signature message blame)
-      
-      (let* ([srcloc (continuation-marks-srcloc (current-continuation-marks))]
-             [message
-              (or message
-                  (make-signature-got obj (test-format)))])
-        
-        (set! signature-violations
-              (cons (make-signature-violation obj signature message srcloc blame)
-                    signature-violations)))
-      (report-failure)
-      (inner (void) signature-failed obj signature message))
-    
-    (define/public (failed-signatures) (reverse signature-violations))
-    
-    (define/pubment (property-failed result src-info)
-      (report-failure)
-      (add-check-failure (make-property-fail src-info (test-format) result) #f #f))
-    
-    (define/pubment (property-error exn src-info)
-      (report-failure)
-      (add-check-failure (make-property-error src-info (test-format) (exn-message exn) exn) exn (exn-srcloc exn)))))
 
 ; helper for printing error messages
 (define (print-reason fail)
@@ -340,4 +234,119 @@
     [(property-error? fail)
      (do-printing "check-property encountered the following error\n:: ~a"
                   (property-error-message fail))])
-    (display "\n"))
+  (display "\n"))
+
+;; FIXME: What comes below needs to go somewhere else
+
+(define test-format (make-parameter (λ (v p) (print v p))))
+
+(define test-info%
+  (class* object% ()
+    (super-instantiate ())
+    
+    (init-field (style 'check-base))
+
+    ;; Tests
+    (define total-tsts 0)
+    (define failed-tsts 0)
+    (define total-cks 0)
+    (define failed-cks 0)
+    (define total-called-wishes 0)
+    
+    (define failures null)
+    (define wishes null)
+    
+    (define unreported-failures #f)
+ 
+    (define/public (clear-unreported-failures)
+      (set! unreported-failures #f))
+    
+    (define/public (report-failure)
+      (set! unreported-failures #t))
+    
+    (define/public (has-unreported-failures)
+      unreported-failures)
+    
+    (define/public (test-style) style)
+    (define/public (tests-run) total-tsts)
+    (define/public (tests-failed) failed-tsts)
+    (define/public (checks-run) total-cks)
+    (define/public (checks-failed) failed-cks)
+    (define/public (summarize-results)
+      (cond [(and (zero? total-tsts) (zero? total-cks)) 'no-tests]
+            [(and (zero? failed-cks) (zero? failed-tsts)) 'all-passed]
+            [else 'mixed-results]))
+    (define/public (called-wishes) total-called-wishes)
+    
+    (define/public (failed-checks) failures)
+    (define/public (unimplemented-wishes) wishes)
+    
+    (define/pubment (add-wish-call name)
+      (set! total-called-wishes (add1 total-called-wishes))
+      (unless (memq name wishes) (set! wishes (cons name wishes)))
+      (inner (void) add-wish-call name))
+    
+    (define/pubment (add-check)
+      (set! total-cks (add1 total-cks))
+      (inner (void) add-check))
+
+    ;; Is this ever called?
+    (define/pubment (add-test)
+      (set! total-tsts (add1 total-tsts))
+      (inner (void) add-test))
+    
+    (define/pubment (add-check-failure fail exn? srcloc?)
+      (set! failed-cks (add1 failed-cks))
+      (set! failures (cons (make-failed-check fail exn? srcloc?) failures))
+      (inner (void) add-check-failure fail exn? srcloc?))
+    
+    (define/pubment (add-wish name)
+      (unless (memq name wishes)
+        (set! wishes (cons name wishes)))
+      (inner (void) add-wish name))
+    
+    ;; check-failed: (U check-fail (list (U string snip%))) src (U exn false) -> void
+    (define/pubment (check-failed msg src exn? srcloc?)
+      (let ((fail
+             ;; We'd like every caller to make a check-fail object,
+             ;; but some (such as ProfessorJ's run time) cannot because
+             ;; of phase problems.  Therefore, do the coercion here.
+             (if (check-fail? msg)
+                 msg
+                 (make-message-error src #f msg))))
+        (add-check-failure fail exn? srcloc?)
+        (report-failure)
+        (inner (void) check-failed fail src exn? srcloc?)))
+    
+    (define/pubment (test-failed failed-info)
+      (set! failed-tsts (add1 failed-tsts))
+      (report-failure)
+      (inner (void) test-failed failed-info))
+
+    ;; Signatures
+    (define signature-violations '())
+
+    (define/pubment (signature-failed obj signature message blame)
+      
+      (let* ([srcloc (continuation-marks-srcloc (current-continuation-marks))]
+             [message
+              (or message
+                  (make-signature-got obj (test-format)))])
+        
+        (set! signature-violations
+              (cons (make-signature-violation obj signature message srcloc blame)
+                    signature-violations)))
+      (report-failure)
+      (inner (void) signature-failed obj signature message))
+    
+    (define/public (failed-signatures) (reverse signature-violations))
+    
+    (define/pubment (property-failed result src-info)
+      (report-failure)
+      (add-check-failure (make-property-fail src-info (test-format) result) #f #f))
+    
+    (define/pubment (property-error exn src-info)
+      (report-failure)
+      (add-check-failure (make-property-error src-info (test-format) (exn-message exn) exn) exn (exn-srcloc exn)))))
+
+

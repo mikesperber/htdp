@@ -1,10 +1,14 @@
 (module racket-gui scheme/base
-  
+
+  (provide format-value make-formatter (all-from-out "racket-tests.rkt"))
+    
+
   (require mred framework scheme/class 
            mzlib/pconvert mzlib/pretty
 	   (for-syntax scheme/base))
   
-  (require (except-in "racket-tests.rkt" test) "test-display.scm")
+  (require (except-in "racket-tests.rkt" test)
+	   "test-display.scm")
   
   (define (make-formatter printer)
     (lambda (value)
@@ -40,25 +44,5 @@
            text-snip))]
       [else (format "~v" value)]))
   
-  (define (test*)
-    (run-tests)
-    (pop-up))
-  
-  (define-syntax (test stx) 
-    (syntax-case stx ()
-      [(_)
-       (syntax-property
-	#'(test*)
-	'test-call #t)]))
-
-  (define (pop-up)
-    (let ([test-info (namespace-variable-value 'test~object #f builder (current-namespace))])
-      (parameterize ([test-format format-value])
-        (and test-info
-             (send test-info refine-display-class test-display%)
-             (send test-info setup-display #f #f)
-             (send test-info summarize-results (current-output-port))))))
-  
-  (provide test format-value make-formatter (all-from-out "racket-tests.rkt"))
   
   )

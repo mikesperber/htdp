@@ -16,10 +16,10 @@
 
     (init-field (current-rep #f))
 
-    (define test-info #f)
-    (define/pubment (install-info t) 
-      (set! test-info t)
-      (inner (void) install-info t))
+    (define test-object #f)
+    (define/pubment (install-test-object t) 
+      (set! test-object t)
+      (inner (void) install-test-object t))
 
     (define current-tab #f)
     (define drscheme-frame #f)
@@ -73,7 +73,7 @@
              [window (or curr-win (make-object test-window%))]
              [content (make-object (editor:standard-style-list-mixin text%))])
         
-        (send this insert-test-results content test-info src-editor)
+        (send this insert-test-results content test-object src-editor)
         (send content lock #t)
         (send window update-editor content)
         (when current-tab
@@ -94,16 +94,15 @@
             (send drscheme-frame display-test-panel content)
             (send window show #t))))
 
-    (define/pubment (insert-test-results editor test-info src-editor)
-      (let* ([style (send test-info test-style)]
-             [total-tests (send test-info tests-run)]
-             [failed-tests (send test-info tests-failed)]
-             [total-checks (send test-info checks-run)]
-             [failed-checks (send test-info checks-failed)]
-             [violated-signatures (send test-info failed-signatures)]
-             [wishes (send test-info unimplemented-wishes)]
+    (define/pubment (insert-test-results editor test-object src-editor)
+      (let* ([style 'check-require] ; FIXME
+             [total-tests (test-object-tests-count test-object)]
+             [total-checks (test-object-checks-count test-object)]
+             [failed-checks (test-object-failed-checks-count test-object)]
+             [violated-signatures (test-object-signature-violations test-object)] ; FIXME name
+             [wishes (test-object-wishes test-object)]
              [total-wishes (length wishes)]
-             [total-wish-calls (send test-info called-wishes)]
+             [total-wish-calls (test-object-called-wishes test-object)]
 
              [check-outcomes
               (lambda (total failed zero-message ck?)
@@ -171,24 +170,12 @@
              [check-outcomes/test
               (lambda (zero-message)
                 (check-outcomes total-checks failed-checks
-                                zero-message #f))]
-             [test-outcomes 
-              (lambda (zero-message)
-                (check-outcomes total-tests failed-tests
                                 zero-message #f))])
         (define start-pos (send editor last-position))
         (case style
-          [(test-require)
-           (test-outcomes
-            (string-append (string-constant test-engine-must-be-tested) "\n"))
-           (check-outcomes/check
-            (string-append (string-constant test-engine-is-unchecked) "\n"))]
           [(check-require)
            (check-outcomes/check
             (string-append (string-constant test-engine-is-unchecked) "\n"))]
-          [(test-basic)
-           (test-outcomes "")
-           (check-outcomes/check "")]
           [(test-check)
            (check-outcomes/test
             (string-append (string-constant test-engine-must-be-tested)
@@ -198,12 +185,12 @@
         (unless (and (zero? total-checks)
                      (null? violated-signatures))
           (inner (begin
-                   (display-check-failures (send test-info failed-checks) 
-                                           editor test-info src-editor)
+                   (display-check-failures (test-object-failed-checks test-object) 
+                                           editor test-object src-editor)
                    (send editor insert "\n")
                    (display-signature-violations violated-signatures
-                                                editor test-info src-editor))
-                 insert-test-results editor test-info src-editor))
+                                                editor test-object src-editor))
+                 insert-test-results editor test-object src-editor))
         (send editor change-style
               (send (editor:get-standard-style-list) find-named-style
                     (editor:get-default-color-style-name))
@@ -215,7 +202,7 @@
         [(null? (cdr l)) (format "and ~a" (car l))]
         [else (format "~a, ~a" (car l) (format-list (cdr l)))]))
     
-    (define/public (display-check-failures checks editor test-info src-editor)
+    (define/public (display-check-failures checks editor test-object src-editor)
       (when (pair? checks)
         (send editor insert (string-append (string-constant test-engine-check-failures) "\n")))
       (for ([failed-check (reverse checks)])
@@ -233,7 +220,7 @@
                        src-editor))
         (send editor insert "\n")))
 
-    (define/public (display-signature-violations violations editor test-info src-editor)
+    (define/public (display-signature-violations violations editor test-object src-editor)
       (when (pair? violations)
         (send editor insert (string-append (string-constant test-engine-signature-violations) "\n")))
       (for-each (lambda (violation)

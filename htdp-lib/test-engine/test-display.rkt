@@ -5,7 +5,7 @@
          mred
          framework
          string-constants
-         "test-info.scm"
+         "test-info.rkt"
          "test-engine.rkt"
          "print.ss"
          (except-in deinprogramm/signature/signature signature-violation) ; clashes with test-engine

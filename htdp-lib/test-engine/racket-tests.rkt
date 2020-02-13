@@ -15,7 +15,7 @@
          (for-syntax #;"requiring from" lang/private/firstorder #;"avoids load cycle")
 	 (except-in deinprogramm/signature/signature signature-violation)
          "test-engine.rkt"
-         "test-info.scm"
+         "test-info.rkt"
 	 "srcloc.rkt")
 
 (require (for-syntax stepper/private/syntax-property))

@@ -11,7 +11,7 @@
 	 run-tests!
 	 test-display-results!)
 (require racket/class
-         "test-info.scm")
+         "test-info.rkt")
 
 ;; Terminology:
 ;; - a test is a piece of code run for testing

@@ -116,9 +116,7 @@
 
 (define (test-display-results! display-rep display-event-space test-display%)
   ;; FIXME: This needs to default test-display-textual%
-  (let ((test-display (make-object test-display%))
-	(test-object (current-test-object)))
-    (send test-display install-test-object test-object)
+  (let ((test-display (make-object test-display% (current-test-object))))
     (cond
      [(and display-rep display-event-space)
       (parameterize ([(dynamic-require 'mred/mred 'current-eventspace) display-event-space])

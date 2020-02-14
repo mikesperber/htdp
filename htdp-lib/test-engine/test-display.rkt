@@ -14,11 +14,8 @@
 (define test-display%
   (class* object% ()
 
-    (define test-object #f)
-    (define/pubment (install-test-object t) 
-      (set! test-object t)
-      (inner (void) install-test-object t))
-
+    (init-field (test-object #f))
+    
     (define/public (display-results src-editor)
       (let* ([current-tab (definitions-tab src-editor)]
 	     [drscheme-frame (definitions-frame src-editor)]

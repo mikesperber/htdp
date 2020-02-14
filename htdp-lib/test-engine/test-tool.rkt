@@ -23,12 +23,7 @@
         (inherit get-top-level-window get-definitions-text)
 
         (define/public (display-test-results test-display)
-          (let* ([dr-frame (get-top-level-window)]
-                 [ed-def (get-definitions-text)]
-                 [tab (and ed-def (send ed-def get-tab))])
-            (when (and dr-frame ed-def tab)
-              (send test-display display-settings dr-frame tab ed-def)
-              (send test-display display-results))))
+	  (send test-display display-results (get-definitions-text)))
 
         (super-instantiate ())))
 

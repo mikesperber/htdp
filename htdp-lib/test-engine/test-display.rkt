@@ -14,31 +14,19 @@
 (define test-display%
   (class* object% ()
 
-    (init-field (current-rep #f))
-
     (define test-object #f)
     (define/pubment (install-test-object t) 
       (set! test-object t)
       (inner (void) install-test-object t))
 
-    (define current-tab #f)
-    (define drscheme-frame #f)
-    (define src-editor #f)
-    (define/public (display-settings df ct ed)
-      (set! current-tab ct)
-      (set! drscheme-frame df)
-      (set! src-editor ed))
-
-    (define (docked?)
-      (and drscheme-frame
-           (preferences:get 'test-engine:test-window:docked?)))
-    
-    (define/public (display-results)
-      (let* ([curr-win (and current-tab (send current-tab get-test-window))]
+    (define/public (display-results src-editor)
+      (let* ([current-tab (definitions-tab src-editor)]
+	     [drscheme-frame (definitions-frame src-editor)]
+	     [curr-win (and current-tab (send current-tab get-test-window))]
              [window (or curr-win (make-object test-window%))]
              [content (make-object (editor:standard-style-list-mixin text%))])
         
-        (insert-test-results content test-object current-tab src-editor current-rep)
+        (insert-test-results content test-object src-editor)
         (send content lock #t)
         (send window update-editor content)
         (when current-tab
@@ -55,13 +43,31 @@
                     (send drscheme-frame deregister-test-window window)
                     (send current-tab current-test-window #f)
                     (send current-tab current-test-editor #f)))))
-        (if (docked?)
+        (if (and drscheme-frame
+		 (preferences:get 'test-engine:test-window:docked?))
             (send drscheme-frame display-test-panel content)
             (send window show #t))))
 
     (super-instantiate ())))
 
-(define (insert-test-results editor test-object current-tab src-editor current-rep)
+(define (definitions-tab definitions-text)
+  (and definitions-text (send definitions-text get-tab)))
+
+(define (definitions-rep definitions-text)
+  (cond
+   ((definitions-tab definitions-text) =>
+    (lambda (tab)
+      (send tab get-ints)))
+   (else #f)))
+
+(define (definitions-frame definitions-text)
+  (cond
+   ((definitions-tab definitions-text) =>
+    (lambda (tab)
+      (send tab get-frame)))
+   (else #f)))
+
+(define (insert-test-results editor test-object src-editor)
   (let* ([total-checks (test-object-checks-count test-object)]
          [failed-checks (test-object-failed-checks-count test-object)]
          [violated-signatures (test-object-signature-violations test-object)] ; FIXME name
@@ -119,10 +125,10 @@
     (unless (and (zero? total-checks)
                  (null? violated-signatures))
       (display-check-failures (test-object-failed-checks test-object) 
-			      editor test-object current-tab src-editor current-rep)
+			      editor test-object src-editor)
       (send editor insert "\n")
       (display-signature-violations violated-signatures
-				    editor test-object current-tab src-editor current-rep))
+				    editor test-object src-editor))
     (send editor change-style
           (send (editor:get-standard-style-list) find-named-style
                 (editor:get-default-color-style-name))
@@ -134,7 +140,7 @@
    [(null? (cdr l)) (format "and ~a" (car l))]
    [else (format "~a, ~a" (car l) (format-list (cdr l)))]))
 
-(define (display-check-failures checks editor test-object current-tab src-editor current-rep)
+(define (display-check-failures checks editor test-object src-editor)
   (when (pair? checks)
     (send editor insert (string-append (string-constant test-engine-check-failures) "\n")))
   (for ([failed-check (reverse checks)])
@@ -145,19 +151,19 @@
                             (failed-check-exn? failed-check)
 			    (failed-check-srcloc? failed-check)
                             (check-fail-src (failed-check-reason failed-check))
-                            current-tab src-editor current-rep)
+                            src-editor)
            (make-link editor
                       (failed-check-reason failed-check)
                       (check-fail-src (failed-check-reason failed-check))
-                      current-tab src-editor current-rep))
+                      src-editor))
        (send editor insert "\n")))
 
-(define (display-signature-violations violations editor test-object current-tab src-editor current-rep)
+(define (display-signature-violations violations editor test-object src-editor)
   (when (pair? violations)
     (send editor insert (string-append (string-constant test-engine-signature-violations) "\n")))
   (for-each (lambda (violation)
               (send editor insert "\t")
-              (make-signature-link editor violation current-tab src-editor current-rep)
+              (make-signature-link editor violation src-editor)
               (send editor insert "\n"))
             violations))
 
@@ -166,17 +172,17 @@
 (define (next-line editor) (send editor insert "\n\t"))
 
 ;; make-link: text% check-fail src editor -> void
-(define (make-link text reason dest current-tab src-editor current-rep)
+(define (make-link text reason dest src-editor)
   (display-reason text reason)
-  (display-link text dest current-tab src-editor current-rep))
+  (display-link text dest src-editor))
 
-(define (display-link text dest current-tab src-editor current-rep)
+(define (display-link text dest src-editor)
   (let ((start (send text get-end-position)))
     (send text insert (format-src dest))
-    (when (and src-editor current-rep)
+    (when src-editor
       (send text set-clickback
             start (send text get-end-position)
-            (lambda (t s e) (highlight-check-error dest current-tab  src-editor current-rep))
+            (lambda (t s e) (highlight-check-error dest  src-editor))
             #f #f)
       (set-clickback-style text start "royalblue"))))
 
@@ -273,16 +279,15 @@
     (print-string "\n")))
 
 ;; make-error-link: text% check-fail exn src editor -> void
-(define (make-error-link text reason exn srcloc dest current-tab src-editor current-rep)
-  (make-link text reason dest current-tab src-editor current-rep)
+(define (make-error-link text reason exn srcloc dest src-editor)
+  (make-link text reason dest src-editor)
       
   (when (and exn srcloc)
     (send text insert (string-append (string-constant test-engine-check-error-cause) " "))
     (display-link text
 		  (map (lambda (acc) (acc srcloc))
 		       (list srcloc-source srcloc-line srcloc-column srcloc-position srcloc-span))
-		  src-editor
-		  current-rep)))
+		  src-editor)))
 
 (define (insert-messages text msgs)
   (for ([m msgs])
@@ -291,7 +296,7 @@
                                  find-named-style "Standard")))
        (send text insert m)))
 
-(define (make-signature-link text violation current-tab src-editor current-rep)
+(define (make-signature-link text violation src-editor)
   (let* ((signature (signature-violation-signature violation))
          (stx (signature-syntax signature))
          (srcloc (signature-violation-srcloc violation))
@@ -316,28 +321,28 @@
         (send text set-clickback
               start (send text get-end-position)
               (lambda (t s e)
-                (highlight-error source line column pos span current-tab src-editor current-rep))
+                (highlight-error source line column pos span src-editor))
               #f #f)
         (set-clickback-style text start "blue")))
     (send text insert ", ")
     (send text insert (string-constant test-engine-signature))
     (send text insert " ")
-    (format-clickable-syntax-src text stx current-tab src-editor current-rep)
+    (format-clickable-syntax-src text stx src-editor)
     (cond
      ((signature-violation-blame violation)
       => (lambda (blame)
            (next-line text)
            (send text insert (string-constant test-engine-to-blame))
            (send text insert " ")
-           (format-clickable-syntax-src text blame current-tab current-tab src-editor current-rep))))))
+           (format-clickable-syntax-src text blame src-editor))))))
 
-(define (format-clickable-syntax-src text stx current-tab src-editor current-rep)
+(define (format-clickable-syntax-src text stx src-editor)
   (let ((start (send text get-end-position)))
     (send text insert (format-syntax-src stx))
     (send text set-clickback
           start (send text get-end-position)
           (lambda (t s e)
-            (highlight-error/syntax stx current-tab src-editor current-rep))
+            (highlight-error/syntax stx src-editor))
           #f #f)
     (set-clickback-style text start "blue")))
 
@@ -378,43 +383,45 @@
         (format (string-constant test-engine-at-line-column)
                 line col))))
 
-(define (highlight-error source line column position span current-tab src-editor current-rep)
-  (when (and current-rep src-editor)
-    (cond
-     [(is-a? src-editor text:basic<%>)
-      (let ((highlight
-             (lambda ()
-               (let ((error-src (if (send src-editor port-name-matches? source) ; definitions or REPL?
-                                    src-editor
-                                    current-rep)))
-                 (send current-rep highlight-errors
-                       (list (make-srcloc error-src
-                                          line
-                                          column
-                                          position span)) #f)
-                 (let ([frame (send current-tab get-frame)])
-                   (unless (send current-tab is-current-tab?)
-                     (let loop ([tabs (send frame get-tabs)] [i 0])
-                       (unless (null? tabs)
-                         (if (eq? (car tabs) current-tab)
-                             (send frame change-to-nth-tab i)
-                             (loop (cdr tabs) (add1 i))))))
-                   (send frame show #t))))))
-        (queue-callback highlight))])))
+(define (highlight-error source line column position span src-editor)
+  (let ((current-rep (definitions-rep src-editor)))
+    (when (and current-rep src-editor)
+      (cond
+       [(is-a? src-editor text:basic<%>)
+	(let ((highlight
+               (lambda ()
+		 (let ((error-src (if (send src-editor port-name-matches? source) ; definitions or REPL?
+                                      src-editor
+                                      current-rep)))
+                   (send current-rep highlight-errors
+			 (list (make-srcloc error-src
+                                            line
+                                            column
+                                            position span)) #f)
+                   (let* ([current-tab (definitions-tab src-editor)]
+			  [frame (send current-tab get-frame)])
+                     (unless (send current-tab is-current-tab?)
+                       (let loop ([tabs (send frame get-tabs)] [i 0])
+			 (unless (null? tabs)
+                           (if (eq? (car tabs) current-tab)
+                               (send frame change-to-nth-tab i)
+                               (loop (cdr tabs) (add1 i))))))
+                     (send frame show #t))))))
+          (queue-callback highlight))]))))
 
-(define (highlight-check-error srcloc current-tab src-editor current-rep)
+(define (highlight-check-error srcloc src-editor)
   (let* ([src-pos cadddr]
          [src-span (lambda (l) (car (cddddr l)))]
          [position (src-pos srcloc)]
          [span (src-span srcloc)])
     (highlight-error (car srcloc) (cadr srcloc) (caddr srcloc)
                      position span
-                     current-tab src-editor current-rep)))
+                     src-editor)))
 
-(define (highlight-error/syntax stx current-tab src-editor current-rep)
+(define (highlight-error/syntax stx src-editor)
   (highlight-error (syntax-source stx) (syntax-line stx) (syntax-column stx)
                    (syntax-position stx) (syntax-span stx)
-                   current-tab src-editor current-rep))
+                   src-editor))
 
 (frame:setup-size-pref 'htdp:test-engine-window-size 400 350
                        #:position-preferences 'htdp:test-engine-window-position)

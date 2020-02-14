@@ -116,7 +116,7 @@
 
 (define (test-display-results! display-rep display-event-space test-display%)
   ;; FIXME: This needs to default test-display-textual%
-  (let ((test-display (make-object test-display% display-rep))
+  (let ((test-display (make-object test-display%))
 	(test-object (current-test-object)))
     (send test-display install-test-object test-object)
     (cond

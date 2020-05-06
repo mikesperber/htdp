@@ -38,7 +38,7 @@
          (only-in test-engine/racket-tests
                   scheme-test-data error-handler test-format test-execute display-results
 		  reset-tests)
-         (lib "test-engine/test-display.rkt")
+         test-engine/test-display
          deinprogramm/signature/signature)
 
 (require setup/collects

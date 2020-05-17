@@ -17,6 +17,7 @@
 ;; (make-failed-check check-fail (U #f exn) (U #f srcloc?)
 (define-struct failed-check (reason exn? srcloc?))
 
+; the src is a list (source line column position span), see check-expect-maker
 (define-struct check-fail (src format))
 
 ;; (make-unexpected-error src format string exn)

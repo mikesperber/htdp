@@ -1,9 +1,11 @@
 #lang racket/base
 (provide markup? markup-fragments ; don't want to export markup constructor
+         no-markup
          (struct-out framed)
          fragment?
          flatten-fragment
-         fragments)
+         fragments
+         insert-fragment)
 (require racket/gui/base
          racket/list
          (only-in racket/class send make-object is-a? new) ;; FIXME: zap
@@ -25,6 +27,8 @@
 (struct markup
   (fragments)
   #:transparent)
+
+(define no-markup (markup '()))
 
 ; flatten out nested markup elements, merge adjacent strings
 (define (normalize-fragments fragments)

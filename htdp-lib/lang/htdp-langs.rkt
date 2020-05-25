@@ -39,6 +39,7 @@
                   scheme-test-data error-handler test-format test-execute display-results
 		  reset-tests)
          test-engine/test-display
+         test-engine/render-value
          deinprogramm/signature/signature)
 
 (require setup/collects
@@ -175,7 +176,13 @@
                (test-execute tests-on?)
                (signature-checking-enabled?
                 (get-preference 'signatures:enable-checking? (lambda () #t)))
-               (test-format (make-formatter (λ (v o) (render-value/format v settings o 40)))))))
+               ;; FIXME: needs to go eventually
+               (test-format (make-formatter (λ (v o) (render-value/format v settings o 40))))
+               ;; FIXME: isn't run currently
+               (render-value-parameter (λ (v)
+                                         (let ([o (open-output-string)])
+                                           (render-value/format v settings o 40)
+                                           (get-output-string o)))))))
           (super on-execute settings run-in-user-thread)
             
           ;; set the global-port-print-handler after the super class because the super sets it too

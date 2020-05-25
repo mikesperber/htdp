@@ -11,6 +11,7 @@
 	 run-tests!
 	 test-display-results!)
 (require racket/class
+         test-engine/render-value
          "test-info.rkt")
 
 ;; Terminology:
@@ -114,18 +115,26 @@
 
 ;; FIXME: everything below needs to go somewhere else
 
+;; careful here: When moving this, must not introduce a dependency from here to mred
+
 (define (test-display-results! display-rep display-event-space test-display%)
   ;; FIXME: This needs to default test-display-textual%
-  (let ((test-display (make-object test-display% (current-test-object))))
+  (let ((test-display (make-object test-display% (current-test-object)))
+        ;; need to transport this binding to the UI thread
+        (render-value-proc (render-value-parameter)))
     (cond
      [(and display-rep display-event-space)
       (parameterize ([(dynamic-require 'mred/mred 'current-eventspace) display-event-space])
 	((dynamic-require 'mred/mred 'queue-callback)
-	 (lambda () (send display-rep display-test-results test-display))))]
+	 (lambda ()
+           (parameterize ([render-value-parameter render-value-proc])
+             (send display-rep display-test-results test-display)))))]
      [display-event-space 
       (parameterize ([(dynamic-require 'mred/mred 'current-eventspace) display-event-space])
 	((dynamic-require 'mred/mred 'queue-callback)
-         (lambda () (send test-display display-results))))]
+         (lambda ()
+           (parameterize ([render-value-parameter render-value-proc])
+             (send test-display display-results)))))]
      [else (send test-display display-results)])))
 
 (define test-display-textual%

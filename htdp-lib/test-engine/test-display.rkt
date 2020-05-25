@@ -1,5 +1,8 @@
 #lang scheme/base
 
+(provide render-value-parameter
+         test-panel% test-window% test-display%)
+
 (require scheme/class
          scheme/file
          mred
@@ -8,6 +11,8 @@
          "test-info.rkt"
          "test-engine.rkt"
          "print.ss"
+         test-engine/render-value
+         test-engine/markup
          (except-in deinprogramm/signature/signature signature-violation) ; clashes with test-engine
          deinprogramm/quickcheck/quickcheck)
 
@@ -122,7 +127,7 @@
     (unless (and (zero? total-checks)
                  (null? violated-signatures))
       (display-check-failures (test-object-failed-checks test-object) 
-			      editor test-object src-editor)
+			      editor src-editor)
       (send editor insert "\n")
       (display-signature-violations violated-signatures
 				    editor test-object src-editor))
@@ -137,23 +142,38 @@
    [(null? (cdr l)) (format "and ~a" (car l))]
    [else (format "~a, ~a" (car l) (format-list (cdr l)))]))
 
-(define (display-check-failures checks editor test-object src-editor)
+(define (display-check-failures checks editor src-editor)
   (when (pair? checks)
     (send editor insert (string-append (string-constant test-engine-check-failures) "\n")))
   (for ([failed-check (reverse checks)])
-       (send editor insert "\t")
-       (if (failed-check-exn? failed-check)
-           (make-error-link editor
-                            (failed-check-reason failed-check)
-                            (failed-check-exn? failed-check)
-			    (failed-check-srcloc? failed-check)
-                            (check-fail-src (failed-check-reason failed-check))
-                            src-editor)
-           (make-link editor
-                      (failed-check-reason failed-check)
-                      (check-fail-src (failed-check-reason failed-check))
-                      src-editor))
-       (send editor insert "\n")))
+    (insert-fragment (failed-check->markup failed-check) editor src-editor)))
+
+(define (display-check-failure failed-check editor src-editor)
+  (send editor insert "\t")
+  (if (failed-check-exn? failed-check)
+      (make-error-link editor
+                       (failed-check-reason failed-check)
+                       (failed-check-exn? failed-check)
+                       (failed-check-srcloc? failed-check)
+                       (check-fail-src (failed-check-reason failed-check))
+                       src-editor)
+      (make-link editor
+                 (failed-check-reason failed-check)
+                 (check-fail-src (failed-check-reason failed-check))
+                 src-editor))
+  (send editor insert "\n"))
+
+(define (failed-check->markup failed-check)
+  (fragments
+   "\t"
+   (if (failed-check-exn? failed-check)
+       (error-link->markup (failed-check-reason failed-check)
+                           (failed-check-exn? failed-check)
+                           (failed-check-srcloc? failed-check)
+                           (check-fail-src (failed-check-reason failed-check)))
+       (link->markup (failed-check-reason failed-check)
+                     (check-fail-src (failed-check-reason failed-check))))
+   "\n"))
 
 (define (display-signature-violations violations editor test-object src-editor)
   (when (pair? violations)
@@ -173,6 +193,14 @@
   (display-reason text reason)
   (display-link text dest src-editor))
 
+; corresponds to make-link
+
+(define (link->markup reason dest)
+  (fragments
+   (reason->markup reason)
+   ;; FIXME: display-link - specifically format-src used there - does something fancier
+   (list->srcloc dest)))
+
 (define (display-link text dest src-editor)
   (let ((start (send text get-end-position)))
     (send text insert (format-src dest))
@@ -182,6 +210,11 @@
             (lambda (t s e) (highlight-check-error dest  src-editor))
             #f #f)
       (set-clickback-style text start "royalblue"))))
+
+; the check-fail src field has a list, not a srcloc
+(define (list->srcloc list)
+  (apply srcloc list))
+
 
 (define (display-reason text fail)
   #;(write (list 'display-reason fail (check-fail? fail) (message-error? fail))
@@ -193,9 +226,15 @@
             (send text insert m))]
          [print-formatted
           (lambda (v)
+            ;; this typically comes from test-format (see test-info.rkt), which comes from the htdp-langs.rkt / sdp-langs.rkt
+            ;; there, it uses format-value from racket-gui.rkt to make a box around things
             (define cff (check-fail-format fail))
+            (write (list "print-formatted" v cff (procedure-arity-includes? cff 2)) (current-error-port))
+            (newline (current-error-port))
             (cond
-             [(procedure-arity-includes? cff 2)
+              [(procedure-arity-includes? cff 2)
+               (display "print-formatted/2" (current-error-port))
+               (newline (current-error-port))
               (cff v (open-output-text-editor text))]
              [else
               (define m (cff v))
@@ -275,6 +314,110 @@
                    (property-error-message fail))])
     (print-string "\n")))
 
+(define (format->markup format-string . vals)
+  (let loop ((chars (string->list format-string))
+             (vals vals)
+             (rev-fragments '()))
+    (cond
+      ((null? chars)
+       (apply fragments (reverse rev-fragments))) ; this will normalize
+      ((char=? (car chars) #\~)
+       (case (cadr chars)
+         ((#\n #\~) (loop (cddr chars) vals (cons "\n" rev-fragments)))
+         ((#\F #\f)
+          (loop (cddr chars)
+                (cdr vals)
+                (cons (framed (render-value (car vals))) rev-fragments)))
+         (else
+          (loop (cddr chars)
+                (cdr vals)
+                (cons (format (string #\~ (cadr chars)) (car vals)) rev-fragments)))))
+      (else
+       (let inner-loop ((chars chars)
+                        (rev-seen '()))
+         (if (or (null? chars)
+                 (char=? (car chars) #\~))
+             (loop chars vals (cons (list->string (reverse rev-seen)) rev-fragments))
+             (inner-loop (cdr chars) (cons (car chars) rev-seen))))))))
+
+
+(define (reason->markup fail)
+  (fragments
+   (cond
+     [(unexpected-error? fail)
+      (format->markup (string-constant test-engine-check-encountered-error)
+                      (unexpected-error-expected fail)
+                      (unexpected-error-message fail))]
+     [(unsatisfied-error? fail)
+      (format->markup
+       "check-satisfied encountered an error instead of the expected kind of value, ~F. \n  :: ~a"
+       (unsatisfied-error-expected fail)
+       (unsatisfied-error-message fail))]
+     [(unequal? fail)
+      (format->markup (string-constant test-engine-actual-value-differs-error)
+                      (unequal-test fail)
+                      (unequal-actual fail))]
+     [(satisfied-failed? fail)
+      (format->markup "Actual value ~F does not satisfy ~a."
+                      (satisfied-failed-actual fail)
+                      (satisfied-failed-name fail))]
+     [(outofrange? fail)
+      (if (string-constant-in-current-language? test-engine-actual-value-not-within-error)
+          (format->markup (string-constant test-engine-actual-value-not-within-error)
+                          (outofrange-test fail)
+                          (outofrange-range fail)
+                          (outofrange-actual fail))
+          (format->markup (string-constant test-engine-actual-value-not-within-error/alt-order)
+                          (outofrange-test fail)
+                          (outofrange-actual fail)
+                          (outofrange-range fail)))]
+     [(incorrect-error? fail)
+      (format->markup (string-constant test-engine-encountered-error-error)
+                      (incorrect-error-expected fail)
+                      (incorrect-error-message fail))]
+     [(expected-error? fail)
+      (format->markup (string-constant test-engine-expected-error-error)
+                      (expected-error-value fail)
+                      (expected-error-message fail))]
+     [(expected-an-error? fail)
+      (format->markup (string-constant test-engine-expected-an-error-error)
+                      (expected-an-error-value fail))]
+     [(message-error? fail)
+      (apply fragments (message-error-strings fail))]
+     [(not-mem? fail)
+      (fragments
+       (format->markup (string-constant test-engine-not-mem-error)
+                       (not-mem-test fail))
+       (apply fragments
+              (map (lambda (a)
+                     (format->markup " ~F" a))
+                   (not-mem-set fail)))
+       ".")]
+     [(not-range? fail)
+      (format->markup (string-constant test-engine-not-range-error)
+                      (not-range-test fail)
+                      (not-range-min fail)
+                      (not-range-max fail))]
+     [(unimplemented-wish? fail)
+      (format->markup "Test relies on a call to wished for function ~F that has not been implemented, with arguments ~F."
+                      (symbol->string (unimplemented-wish-name fail))
+                      (unimplemented-wish-args fail))]
+     [(property-fail? fail)
+      (fragments 
+       (string-constant test-engine-property-fail-error)
+       (apply fragments
+              (map (lambda (arguments)
+                     (map (lambda (p)
+                            (if (car p)
+                                (format->markup " ~a = ~F" (car p) (cdr p))
+                                (format->markup "~F" (cdr p))))
+                          arguments))
+                   (result-arguments-list (property-fail-result fail)))))]
+     [(property-error? fail)
+      (format->markup (string-constant test-engine-property-error-error)
+                      (property-error-message fail))])
+   "\n"))
+
 ;; make-error-link: text% check-fail exn src editor -> void
 (define (make-error-link text reason exn srcloc dest src-editor)
   (make-link text reason dest src-editor)
@@ -285,6 +428,14 @@
 		  (map (lambda (acc) (acc srcloc))
 		       (list srcloc-source srcloc-line srcloc-column srcloc-position srcloc-span))
 		  src-editor)))
+
+(define (error-link->markup reason exn srcloc dest)
+  (fragments (link->markup reason dest)
+             (if (and exn srcloc) ; FIXME: does not even use exn
+                 (fragments
+                  (string-constant test-engine-check-error-cause) " "
+                  srcloc)
+                 no-markup)))
 
 (define (insert-messages text msgs)
   (for ([m msgs])
@@ -526,4 +677,29 @@
         (preferences:set 'test-engine:test-dock-size (send parent get-percentages))
         (send parent delete-child this)))))
 
-(provide test-panel% test-window% test-display%)
+(module+ test
+  (require rackunit)
+
+  (parameterize
+      ((render-value-parameter
+        (lambda (v)
+          (format "<~V>" v))))
+    (call-with-current-language
+     'english
+     (lambda ()
+       (check-equal? (format->markup "foo ~F bar ~v ~~" 5 #f)
+                     (fragments "foo "
+                                (framed "<5>")
+                                " bar "
+                                "#f"
+                                " \n"))
+
+       ;; FIXME: more of these
+       (check-equal? (reason->markup
+                      (make-unexpected-error #f #f 'expected "not expected" #f))
+                     (fragments "check-expect encountered the following error instead of the expected value, "
+                                (framed "<expected>")
+                                ". \n   :: not expected\n"))))))
+                                        
+
+

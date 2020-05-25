@@ -313,6 +313,39 @@
                                  find-named-style "Standard")))
        (send text insert m)))
 
+(define (signature-violation->markup text violation)
+  (let* ((signature (signature-violation-signature violation))
+         (stx (signature-syntax signature))
+         (srcloc (signature-violation-srcloc violation))
+         (message (signature-violation-message violation)))
+    (fragments
+     (cond
+       ((string? message)
+        message)
+       ((signature-got? message)
+        
+        (fragments (string-constant test-engine-got)
+                   " "
+                   (render-value (signature-got-value message))))
+       (else no-markup))
+    
+     (if srcloc
+         (fragments " " srcloc)
+         no-markup)
+     ", "
+     (string-constant test-engine-signature)
+     " "
+     (syntax-srcloc stx)
+     (cond
+       ((signature-violation-blame violation)
+        => (lambda (blame)
+             (fragments
+              "\n\t"
+              (string-constant test-engine-to-blame)
+              " "
+              (syntax-srcloc blame))))
+       (else no-markup)))))
+
 (define (make-signature-link text violation src-editor)
   (let* ((signature (signature-violation-signature violation))
          (stx (signature-syntax signature))
@@ -372,6 +405,11 @@
           start end #f)
     (send c set-delta-foreground color)
     (send text change-style c start end #f)))
+
+(define (syntax-srcloc stx)
+  (srcloc (syntax-source stx)
+          (syntax-line stx) (syntax-column stx)
+          (syntax-position stx) (syntax-span stx)))
 
 (define (format-syntax-src stx)
   (format-position (syntax-source stx)

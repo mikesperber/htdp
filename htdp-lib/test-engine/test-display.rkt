@@ -148,21 +148,6 @@
   (for ([failed-check (reverse checks)])
     (insert-fragment (failed-check->markup failed-check) editor src-editor)))
 
-(define (display-check-failure failed-check editor src-editor)
-  (send editor insert "\t")
-  (if (failed-check-exn? failed-check)
-      (make-error-link editor
-                       (failed-check-reason failed-check)
-                       (failed-check-exn? failed-check)
-                       (failed-check-srcloc? failed-check)
-                       (check-fail-src (failed-check-reason failed-check))
-                       src-editor)
-      (make-link editor
-                 (failed-check-reason failed-check)
-                 (check-fail-src (failed-check-reason failed-check))
-                 src-editor))
-  (send editor insert "\n"))
-
 (define (failed-check->markup failed-check)
   (fragments
    "\t"
@@ -188,19 +173,13 @@
 ;;Inserts a newline and a tab into editor
 (define (next-line editor) (send editor insert "\n\t"))
 
-;; make-link: text% check-fail src editor -> void
-(define (make-link text reason dest src-editor)
-  (display-reason text reason)
-  (display-link text dest src-editor))
-
-; corresponds to make-link
-
 (define (link->markup reason dest)
   (fragments
    (reason->markup reason)
    ;; FIXME: display-link - specifically format-src used there - does something fancier
    (list->srcloc dest)))
 
+; keep this for reference:
 (define (display-link text dest src-editor)
   (let ((start (send text get-end-position)))
     (send text insert (format-src dest))
@@ -214,94 +193,6 @@
 ; the check-fail src field has a list, not a srcloc
 (define (list->srcloc list)
   (apply srcloc list))
-
-
-(define (display-reason text fail)
-  #;(write (list 'display-reason fail (check-fail? fail) (message-error? fail))
-  (current-error-port))
-  #;(newline (current-error-port))
-      
-  (let* ([print-string
-          (lambda (m)
-            (send text insert m))]
-         [print-formatted
-          (lambda (v)
-            (define m (render-value v))
-            (when (is-a? m snip%)
-              (send m set-style (send (send text get-style-list)
-                                      find-named-style "Standard")))
-            (send text insert m))]
-         [the-printer
-          (lambda (fstring . vals)
-            (apply print-with-values fstring print-string print-formatted vals))]
-         [formatter values])
-    (cond
-     [(unexpected-error? fail)
-      (the-printer (string-constant test-engine-check-encountered-error)
-                   (unexpected-error-expected fail)
-                   (unexpected-error-message fail))]
-     [(unsatisfied-error? fail)
-      (the-printer
-       "check-satisfied encountered an error instead of the expected kind of value, ~F. \n  :: ~a"
-       (unsatisfied-error-expected fail)
-       (unsatisfied-error-message fail))]
-     [(unequal? fail)
-      (the-printer (string-constant test-engine-actual-value-differs-error)
-                   (unequal-test fail)
-                   (unequal-actual fail))]
-     [(satisfied-failed? fail)
-      (the-printer "Actual value ~F does not satisfy ~a."
-                   (satisfied-failed-actual fail)
-                   (satisfied-failed-name fail))]
-     [(outofrange? fail)
-      (if (string-constant-in-current-language? test-engine-actual-value-not-within-error)
-          (the-printer (string-constant test-engine-actual-value-not-within-error)
-                       (outofrange-test fail)
-                       (outofrange-range fail)
-                       (outofrange-actual fail))
-          (the-printer (string-constant test-engine-actual-value-not-within-error/alt-order)
-                       (outofrange-test fail)
-                       (outofrange-actual fail)
-                       (outofrange-range fail)))]
-     [(incorrect-error? fail)
-      (the-printer (string-constant test-engine-encountered-error-error)
-                   (incorrect-error-expected fail)
-                   (incorrect-error-message fail))]
-     [(expected-error? fail)
-      (the-printer (string-constant test-engine-expected-error-error)
-                   (expected-error-value fail)
-                   (expected-error-message fail))]
-     [(expected-an-error? fail)
-      (the-printer (string-constant test-engine-expected-an-error-error)
-                   (expected-an-error-value fail))]
-     [(message-error? fail)
-      (for-each print-formatted (message-error-strings fail))]
-     [(not-mem? fail)
-      (the-printer (string-constant test-engine-not-mem-error)
-                   (not-mem-test fail))
-      (for ([a (in-list (not-mem-set fail))])
-           (the-printer " ~F" a))
-      (the-printer ".")]
-     [(not-range? fail)
-      (the-printer (string-constant test-engine-not-range-error)
-                   (not-range-test fail)
-                   (not-range-min fail)
-                   (not-range-max fail))]
-     [(unimplemented-wish? fail)
-      (the-printer "Test relies on a call to wished for function ~F that has not been implemented, with arguments ~F."
-                   (symbol->string (unimplemented-wish-name fail))
-                   (unimplemented-wish-args fail))]
-     [(property-fail? fail)
-      (print-string (string-constant test-engine-property-fail-error))
-      (for ([arguments (in-list (result-arguments-list (property-fail-result fail)))])
-           (for ([p (in-list arguments)])
-		(if (car p)
-                    (the-printer " ~a = ~F" (car p) (cdr p))
-                    (the-printer "~F" (cdr p)))))]
-     [(property-error? fail)
-      (the-printer (string-constant test-engine-property-error-error)
-                   (property-error-message fail))])
-    (print-string "\n")))
 
 (define (format->markup format-string . vals)
   (let loop ((chars (string->list format-string))
@@ -406,17 +297,6 @@
       (format->markup (string-constant test-engine-property-error-error)
                       (property-error-message fail))])
    "\n"))
-
-;; make-error-link: text% check-fail exn src editor -> void
-(define (make-error-link text reason exn srcloc dest src-editor)
-  (make-link text reason dest src-editor)
-      
-  (when (and exn srcloc)
-    (send text insert (string-append (string-constant test-engine-check-error-cause) " "))
-    (display-link text
-		  (map (lambda (acc) (acc srcloc))
-		       (list srcloc-source srcloc-line srcloc-column srcloc-position srcloc-span))
-		  src-editor)))
 
 (define (error-link->markup reason exn srcloc dest)
   (fragments (link->markup reason dest)

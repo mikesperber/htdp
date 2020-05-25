@@ -245,7 +245,7 @@
         ; (error-check (lambda (v) #f) name "expected a boolean" #t)
         (check-result (format "~a [as predicate in check-satisfied]" name) boolean? "boolean" r)]))
    ;; maker
-   (lambda (src format v1 _v2 _) (make-satisfied-failed src format v1 name))
+   (lambda (src v1 _v2 _) (make-satisfied-failed src v1 name))
    ;; test 
    produce-v
    ;; expect 
@@ -264,7 +264,7 @@
   (error-check (lambda (v) (if (number? v) (exact? v) #t))
                actual INEXACT-NUMBERS-FMT #t)
   (run-and-check (lambda (v1 v2 _) (teach-equal? v1 v2))
-                 (lambda (src format v1 v2 _) (make-unequal src format v1 v2))
+                 (lambda (src v1 v2 _) (make-unequal src v1 v2))
                  (lambda () (parameterize ([current-pseudo-random-generator rng])
                               (random-seed k)
                               ((test-maker))))
@@ -279,7 +279,7 @@
                actual INEXACT-NUMBERS-FMT #t)
   (error-check (lambda (v) (not (procedure? v))) actual FUNCTION-FMT #f)
   (run-and-check (lambda (v1 v2 _) (teach-equal? v1 v2))
-                 (lambda (src format v1 v2 _) (make-unequal src format v1 v2))
+                 (lambda (src v1 v2 _) (make-unequal src v1 v2))
                  test actual #f src 'check-expect))
 
 ;;check-within
@@ -321,10 +321,10 @@
                                    (define msg 
                                      (rewrite-contract-error-message (exn-message e)))
                                    (or (equal? msg error)
-                                       (make-incorrect-error src (test-format) error
+                                       (make-incorrect-error src error
                                                              msg e)))])
                   (let ([test-val (test)])
-                    (make-expected-error src (test-format) error test-val)))])
+                    (make-expected-error src error test-val)))])
     (if (check-fail? result)
         (begin
           (add-check-failure
@@ -341,7 +341,7 @@
   (let ([result (with-handlers ([exn?
                                  (lambda (e) #t)])
                   (let ([test-val (test)])
-                    (make-expected-an-error src (test-format) test-val)))])
+                    (make-expected-an-error src test-val)))])
     (if (check-fail? result)
         (begin
           (add-check-failure
@@ -373,7 +373,7 @@
 (define (check-member-of-values-expected test first-actual actuals src test-engine)
   (error-check (lambda (v) (not (procedure? v))) first-actual CHECK-MEMBER-OF-FUNCTION-FMT #f)
   (run-and-check (lambda (v2 v1 _) (memf (lambda (i) (teach-equal? v1 i)) v2))
-                 (lambda (src format v1 v2 _) (make-not-mem src format v1 v2))
+                 (lambda (src v1 v2 _) (make-not-mem src v1 v2))
                  test (cons first-actual actuals) #f src test-engine 'check-member-of))
 
 ;;check-range
@@ -393,11 +393,11 @@
   (error-check (lambda (v) (not (procedure? v))) min CHECK-RANGE-FUNCTION-FMT #f)
   (error-check (lambda (v) (not (procedure? v))) max CHECK-RANGE-FUNCTION-FMT #f)
   (run-and-check (lambda (v2 v1 v3) (and (number? v1) (and (<= v2 v1) (<= v1 v3))))
-                 (lambda (src format v1 v2 v3) (make-not-range src format v1 v2 v3))
+                 (lambda (src v1 v2 v3) (make-not-range src v1 v2 v3))
                  test min max src test-engine 'check-range))
 
 ;; run-and-check: (scheme-val scheme-val scheme-val -> boolean)
-;;                (src format scheme-val scheme-val scheme-val -> check-fail)
+;;                (src scheme-val scheme-val scheme-val -> check-fail)
 ;;                ( -> scheme-val) scheme-val scheme-val symbol? -> boolean
 (define (run-and-check check maker test expect range src kind)
   (add-check! test expect range src kind)
@@ -406,11 +406,11 @@
                                 (lambda (e)
                                   (define name (exn:fail:wish-name e))
                                   (define args (exn:fail:wish-args e))
-                                  (list (unimplemented-wish src (test-format) name args) 'error #f))]
+                                  (list (unimplemented-wish src name args) 'error #f))]
 			       [exn:fail:contract:signature?
 				(lambda (e)
 				  (list
-				   (make-violated-signature src (test-format)
+				   (make-violated-signature src
 							    (exn:fail:contract:signature-obj e)
 							    (exn:fail:contract:signature-signature e)
 							    (exn:fail:contract:signature-blame e))
@@ -419,12 +419,12 @@
                                 (lambda (e)
                                   (define msg (get-rewriten-error-message e))
                                   (cons (if (and (pair? kind) (eq? 'check-satisfied (car kind)))
-                                            (unsatisfied-error src (test-format) (cadr kind) msg e)
-                                            (unexpected-error src (test-format) expect msg e))
+                                            (unsatisfied-error src (cadr kind) msg e)
+                                            (unexpected-error src expect msg e))
                                         (list 'error e)))])
                  (define test-val (test))
                  (define passes?  (check expect test-val range))
-                 (cons (or passes? (maker src (test-format) test-val expect range)) (list test-val #f)))])
+                 (cons (or passes? (maker src test-val expect range)) (list test-val #f)))])
     (define failed? (check-fail? result))
     (cond [(not failed?) #t]
           [else (add-check-failure result exn (and (exn? exn) (exn-srcloc exn)))
@@ -485,4 +485,4 @@
 ;; (list (drscheme:rep:current-rep) drs-eventspace test-display%)
 (define scheme-test-data (make-parameter (list #f #f #f)))
 
-(provide scheme-test-data test-format test-execute test-silence error-handler)
+(provide scheme-test-data test-execute test-silence error-handler)

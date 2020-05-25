@@ -36,7 +36,7 @@
 
          (only-in test-engine/racket-gui make-formatter)
          (only-in test-engine/racket-tests
-                  scheme-test-data error-handler test-format test-execute display-results
+                  scheme-test-data error-handler test-execute display-results
 		  reset-tests)
          test-engine/test-display
          test-engine/render-value
@@ -176,9 +176,6 @@
                (test-execute tests-on?)
                (signature-checking-enabled?
                 (get-preference 'signatures:enable-checking? (lambda () #t)))
-               ;; FIXME: needs to go eventually
-               (test-format (make-formatter (λ (v o) (render-value/format v settings o 40))))
-               ;; FIXME: isn't run currently
                (render-value-parameter (λ (v)
                                          (let ([o (open-output-string)])
                                            (render-value/format v settings o 40)

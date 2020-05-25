@@ -9,6 +9,7 @@
          lang/private/continuation-mark-key
          deinprogramm/quickcheck/quickcheck
 	 (except-in deinprogramm/signature/signature signature-violation)
+         test-engine/render-value
          "print.ss"
 	 "srcloc.rkt")
 
@@ -18,7 +19,7 @@
 (define-struct failed-check (reason exn? srcloc?))
 
 ; the src is a list (source line column position span), see check-expect-maker
-(define-struct check-fail (src format))
+(define-struct check-fail (src))
 
 ;; (make-unexpected-error src format string exn)
 (define-struct (unexpected-error check-fail) (expected message exn))
@@ -59,15 +60,8 @@
 
 ; helper for printing error messages
 (define (print-reason fail)
-  (define (print-formatted val)
-    (define cff (check-fail-format fail))
-    (cond
-      [(procedure-arity-includes? cff 2)
-       (cff val (current-output-port))]
-      [else
-       (display (cff val))]))
   (define (do-printing fstring . vals)
-    (apply print-with-values fstring display print-formatted vals))
+    (apply print-with-values fstring display render-value vals))
   (cond
     [(unsatisfied-error? fail)
      (do-printing 
@@ -237,9 +231,6 @@
                   (property-error-message fail))])
   (display "\n"))
 
-;; FIXME: What comes below needs to go somewhere else
-
-(define test-format (make-parameter (λ (v p) (print v p))))
 
 
 

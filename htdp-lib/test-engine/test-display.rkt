@@ -226,22 +226,11 @@
             (send text insert m))]
          [print-formatted
           (lambda (v)
-            ;; this typically comes from test-format (see test-info.rkt), which comes from the htdp-langs.rkt / sdp-langs.rkt
-            ;; there, it uses format-value from racket-gui.rkt to make a box around things
-            (define cff (check-fail-format fail))
-            (write (list "print-formatted" v cff (procedure-arity-includes? cff 2)) (current-error-port))
-            (newline (current-error-port))
-            (cond
-              [(procedure-arity-includes? cff 2)
-               (display "print-formatted/2" (current-error-port))
-               (newline (current-error-port))
-              (cff v (open-output-text-editor text))]
-             [else
-              (define m (cff v))
-              (when (is-a? m snip%)
-                (send m set-style (send (send text get-style-list)
-                                        find-named-style "Standard")))
-              (send text insert m)]))]
+            (define m (render-value v))
+            (when (is-a? m snip%)
+              (send m set-style (send (send text get-style-list)
+                                      find-named-style "Standard")))
+            (send text insert m))]
          [the-printer
           (lambda (fstring . vals)
             (apply print-with-values fstring print-string print-formatted vals))]

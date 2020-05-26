@@ -2,7 +2,7 @@
 
 (require scheme/file scheme/class scheme/unit scheme/contract drscheme/tool framework mred
          string-constants lang/htdp-langs-interface)
-(require "test-display.rkt")
+(require "test-gui.rkt")
 (provide tool@)
 
 (preferences:set-default 'test-engine:test-dock-size 

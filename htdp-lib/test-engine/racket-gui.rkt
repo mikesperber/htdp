@@ -8,7 +8,7 @@
 	   (for-syntax scheme/base))
   
   (require (except-in "racket-tests.rkt" test)
-	   "test-display.rkt")
+	   "test-gui.rkt")
   
   (define (make-formatter printer)
     (lambda (value)

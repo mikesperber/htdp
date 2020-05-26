@@ -165,13 +165,9 @@
     (send editor insert (string-append (string-constant test-engine-signature-violations) "\n")))
   (for-each (lambda (violation)
               (send editor insert "\t")
-              (make-signature-link editor violation src-editor)
+              (insert-fragment (signature-violation->markup violation)
               (send editor insert "\n"))
-            violations))
-
-;;next-line: editor% -> void
-;;Inserts a newline and a tab into editor
-(define (next-line editor) (send editor insert "\n\t"))
+            violations)))
 
 (define (link->markup reason dest)
   (fragments
@@ -180,6 +176,7 @@
    (list->srcloc dest)))
 
 ; keep this for reference:
+#|
 (define (display-link text dest src-editor)
   (let ((start (send text get-end-position)))
     (send text insert (format-src dest))
@@ -189,6 +186,30 @@
             (lambda (t s e) (highlight-check-error dest  src-editor))
             #f #f)
       (set-clickback-style text start "royalblue"))))
+
+;;format-src: src -> string
+(define (format-src src)
+  (format-position (car src) (cadr src) (caddr src)))
+
+(define (format-position file line column)
+  (let ([line (cond [line => number->string]
+                    [else 
+                     (string-constant test-engine-unknown)])]
+        [col
+         (cond [column => number->string]
+               [else (string-constant test-engine-unknown)])])  
+          
+    (if (path? file)
+        (let-values (((base name must-be-dir?)
+                      (split-path file)))
+          (if (path? name)
+              (format (string-constant test-engine-in-at-line-column)
+                      (path->string name) line col)
+              (format (string-constant test-engine-at-line-column)
+                      line col)))
+        (format (string-constant test-engine-at-line-column)
+                line col))))
+|#
 
 ; the check-fail src field has a list, not a srcloc
 (define (list->srcloc list)
@@ -219,7 +240,6 @@
                  (char=? (car chars) #\~))
              (loop chars vals (cons (list->string (reverse rev-seen)) rev-fragments))
              (inner-loop (cdr chars) (cons (car chars) rev-seen))))))))
-
 
 (define (reason->markup fail)
   (fragments
@@ -306,14 +326,7 @@
                   srcloc)
                  no-markup)))
 
-(define (insert-messages text msgs)
-  (for ([m msgs])
-       (when (is-a? m snip%)
-         (send m set-style (send (send text get-style-list)
-                                 find-named-style "Standard")))
-       (send text insert m)))
-
-(define (signature-violation->markup text violation)
+(define (signature-violation->markup violation)
   (let* ((signature (signature-violation-signature violation))
          (stx (signature-syntax signature))
          (srcloc (signature-violation-srcloc violation))
@@ -346,137 +359,10 @@
               (syntax-srcloc blame))))
        (else no-markup)))))
 
-(define (make-signature-link text violation src-editor)
-  (let* ((signature (signature-violation-signature violation))
-         (stx (signature-syntax signature))
-         (srcloc (signature-violation-srcloc violation))
-         (message (signature-violation-message violation)))
-    (cond
-     ((string? message)
-      (send text insert message))
-     ((signature-got? message)
-      (insert-messages text (list (string-constant test-engine-got)
-                                  " "
-                                  ((signature-got-format message)
-                                   (signature-got-value message))))))
-    (when srcloc
-      (send text insert " ")
-      (let ((source (srcloc-source srcloc))
-            (line (srcloc-line srcloc))
-            (column (srcloc-column srcloc))
-            (pos (srcloc-position srcloc))
-            (span (srcloc-span srcloc))
-            (start (send text get-end-position)))
-        (send text insert (format-position source line column))
-        (send text set-clickback
-              start (send text get-end-position)
-              (lambda (t s e)
-                (highlight-error source line column pos span src-editor))
-              #f #f)
-        (set-clickback-style text start "blue")))
-    (send text insert ", ")
-    (send text insert (string-constant test-engine-signature))
-    (send text insert " ")
-    (format-clickable-syntax-src text stx src-editor)
-    (cond
-     ((signature-violation-blame violation)
-      => (lambda (blame)
-           (next-line text)
-           (send text insert (string-constant test-engine-to-blame))
-           (send text insert " ")
-           (format-clickable-syntax-src text blame src-editor))))))
-
-(define (format-clickable-syntax-src text stx src-editor)
-  (let ((start (send text get-end-position)))
-    (send text insert (format-syntax-src stx))
-    (send text set-clickback
-          start (send text get-end-position)
-          (lambda (t s e)
-            (highlight-error/syntax stx src-editor))
-          #f #f)
-    (set-clickback-style text start "blue")))
-
-(define (set-clickback-style text start color)
-  (let ([end (send text get-end-position)]
-        [c (new style-delta%)])
-    (send text insert " ")
-    (send text change-style
-          (make-object style-delta% 'change-underline #t)
-          start end #f)
-    (send c set-delta-foreground color)
-    (send text change-style c start end #f)))
-
 (define (syntax-srcloc stx)
   (srcloc (syntax-source stx)
           (syntax-line stx) (syntax-column stx)
           (syntax-position stx) (syntax-span stx)))
-
-(define (format-syntax-src stx)
-  (format-position (syntax-source stx)
-                   (syntax-line stx) (syntax-column stx)))
-
-;;format-src: src -> string
-(define (format-src src)
-  (format-position (car src) (cadr src) (caddr src)))
-
-(define (format-position file line column)
-  (let ([line (cond [line => number->string]
-                    [else 
-                     (string-constant test-engine-unknown)])]
-        [col
-         (cond [column => number->string]
-               [else (string-constant test-engine-unknown)])])  
-          
-    (if (path? file)
-        (let-values (((base name must-be-dir?)
-                      (split-path file)))
-          (if (path? name)
-              (format (string-constant test-engine-in-at-line-column)
-                      (path->string name) line col)
-              (format (string-constant test-engine-at-line-column)
-                      line col)))
-        (format (string-constant test-engine-at-line-column)
-                line col))))
-
-(define (highlight-error source line column position span src-editor)
-  (let ((current-rep (definitions-rep src-editor)))
-    (when (and current-rep src-editor)
-      (cond
-       [(is-a? src-editor text:basic<%>)
-	(let ((highlight
-               (lambda ()
-		 (let ((error-src (if (send src-editor port-name-matches? source) ; definitions or REPL?
-                                      src-editor
-                                      current-rep)))
-                   (send current-rep highlight-errors
-			 (list (make-srcloc error-src
-                                            line
-                                            column
-                                            position span)) #f)
-                   (let* ([current-tab (definitions-tab src-editor)]
-			  [frame (send current-tab get-frame)])
-                     (unless (send current-tab is-current-tab?)
-                       (let loop ([tabs (send frame get-tabs)] [i 0])
-			 (unless (null? tabs)
-                           (if (eq? (car tabs) current-tab)
-                               (send frame change-to-nth-tab i)
-                               (loop (cdr tabs) (add1 i))))))
-                     (send frame show #t))))))
-          (queue-callback highlight))]))))
-
-(define (highlight-check-error srcloc src-editor)
-  (let* ([src-pos cadddr]
-         [src-span (lambda (l) (car (cddddr l)))]
-         [position (src-pos srcloc)]
-         [span (src-span srcloc)])
-    (highlight-error (car srcloc) (cadr srcloc) (caddr srcloc)
-                     position span
-                     src-editor)))
-
-(define (highlight-error/syntax stx src-editor)
-  (highlight-error (syntax-source stx) (syntax-line stx) (syntax-column stx)
-                   (syntax-position stx) (syntax-span stx)
-                   src-editor))
 
 (frame:setup-size-pref 'htdp:test-engine-window-size 400 350
                        #:position-preferences 'htdp:test-engine-window-position)

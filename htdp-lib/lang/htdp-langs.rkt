@@ -38,7 +38,7 @@
          (only-in test-engine/racket-tests
                   scheme-test-data error-handler test-execute display-results
 		  reset-tests)
-         test-engine/test-gui
+         test-engine/test-display-gui
          test-engine/render-value
          deinprogramm/signature/signature)
 

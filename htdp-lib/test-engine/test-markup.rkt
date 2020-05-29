@@ -7,7 +7,6 @@
 (require string-constants
          "test-info.rkt"
          "test-engine.rkt"
-         "print.ss"
          test-engine/render-value
          test-engine/markup
          (except-in deinprogramm/signature/signature signature-violation) ; clashes with test-engine

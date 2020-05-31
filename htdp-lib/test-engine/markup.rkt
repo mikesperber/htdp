@@ -162,9 +162,85 @@
     (send text lock #t)
     (send frame show #t)))
 
+(define (listify thing)
+  (if (or (null? thing)
+          (pair? thing))
+      thing
+      (list thing)))
+
+(define (block-width block)
+  (if (null? block)
+      0
+      (string-length (car block))))
+
+(define (block-adjust block height)
+  (let ((block-height (length block))
+        (width (block-width block)))
+    (if (< block-height height)
+        (let ((height-diff (abs (- height block-height))))
+          (append (make-list (quotient height-diff 2) (make-string width #\space))
+                  block
+                  (make-list (quotient (+ height-diff 1) 2) (make-string width #\space))))
+        block)))
+      
+(define (append-blocks-2 block1 block2)
+  (let ((height1 (length block1))
+        (height2 (length block2)))
+    (let ((height (max height1 height2)))
+      (map string-append
+           (block-adjust block1 height)
+           (block-adjust block2 height)))))
+
+(define (append-blocks . blocks)
+  (foldr append-blocks-2 '() blocks))
+
+(define (block-box block)
+  (let ((width (block-width block)))
+    (append (list (string-append "┌─" (make-string width #\─) "─┐"))
+            (map (lambda (line)
+                   (string-append "│ " line " │"))
+                 block)
+            (list (string-append "└─" (make-string width #\─) "─┘")))))
+
+(define (block-display port block)
+  (for-each (lambda (line)
+              (display line port)
+              (newline port))
+            block))
+
+(define (fragment->block fragment)
+  (cond
+    ((string? fragment) (list fragment))
+    ((markup? fragment)
+     (apply append-blocks
+            (map fragment->block (markup-fragments fragment))))
+    ((srcloc? fragment)
+     (list (srcloc->string fragment)))
+    ((framed? fragment)
+     (block-box (fragment->block (framed-fragment fragment))))))
+
 (module+ test
   (require rackunit)
 
+  (check-equal? (append-blocks (list "aaa" "bbb" "ccc") (list "xxxx" "yyyy" "zzzz"))
+                '("aaaxxxx" "bbbyyyy" "ccczzzz"))
+  (check-equal? (append-blocks (list "aaa" "bbb" "ccc") (list "xxxx" "zzzz"))
+                '("aaaxxxx" "bbbzzzz" "ccc    "))
+  (check-equal? (append-blocks (list "aaa" "bbb" "ccc") (list "xxxx"))
+                '("aaa    " "bbbxxxx" "ccc    "))
+  (check-equal? (append-blocks (list "aaa" "ccc") (list "xxxx" "yyyy" "zzzz"))
+                '("aaaxxxx" "cccyyyy" "   zzzz"))
+  (check-equal? (append-blocks (list "ccc") (list "xxxx" "yyyy" "zzzz"))
+                '("   xxxx" "cccyyyy" "   zzzz"))
+
+  (check-equal? (block-box (list "xxx" "yyy" "zzz"))
+                '("┌─────┐" "│ xxx │" "│ yyy │" "│ zzz │" "└─────┘"))
+
+  (check-equal? (fragment->block (fragments "foo" "bar"
+                                            (framed "baz")
+                                            "bam" "wup"))
+                '("      ┌─────┐      " "foobar│ baz │bamwup" "      └─────┘      "))
+  
   (define (render-fragment-via-text fragment)
     (let ((text (new text%)))
       (insert-fragment fragment text #f)

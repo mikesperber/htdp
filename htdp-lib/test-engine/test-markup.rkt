@@ -13,7 +13,7 @@
          deinprogramm/quickcheck/quickcheck)
 
 (define (failed-check->markup failed-check)
-  (fragments
+  (horizontal
    "\t"
    (if (failed-check-exn? failed-check)
        (error-link->markup (failed-check-reason failed-check)
@@ -25,7 +25,7 @@
    "\n"))
 
 (define (link->markup reason dest)
-  (fragments
+  (horizontal
    (reason->markup reason)
    ;; FIXME: display-link - specifically format-src used there - does something fancier
    (list->srcloc dest)))
@@ -76,7 +76,7 @@
              (rev-fragments '()))
     (cond
       ((null? chars)
-       (apply fragments (reverse rev-fragments))) ; this will normalize
+       (apply horizontal (reverse rev-fragments))) ; this will normalize
       ((char=? (car chars) #\~)
        (case (cadr chars)
          ((#\n #\~) (loop (cddr chars) vals (cons "\n" rev-fragments)))
@@ -97,7 +97,7 @@
              (inner-loop (cdr chars) (cons (car chars) rev-seen))))))))
 
 (define (reason->markup fail)
-  (fragments
+  (horizontal
    (cond
      [(unexpected-error? fail)
       (format->markup (string-constant test-engine-check-encountered-error)
@@ -138,12 +138,12 @@
       (format->markup (string-constant test-engine-expected-an-error-error)
                       (expected-an-error-value fail))]
      [(message-error? fail)
-      (apply fragments (message-error-strings fail))]
+      (apply horizontal (message-error-strings fail))]
      [(not-mem? fail)
-      (fragments
+      (horizontal
        (format->markup (string-constant test-engine-not-mem-error)
                        (not-mem-test fail))
-       (apply fragments
+       (apply horizontal
               (map (lambda (a)
                      (format->markup " ~F" a))
                    (not-mem-set fail)))
@@ -158,9 +158,9 @@
                       (symbol->string (unimplemented-wish-name fail))
                       (unimplemented-wish-args fail))]
      [(property-fail? fail)
-      (fragments 
+      (horizontal 
        (string-constant test-engine-property-fail-error)
-       (apply fragments
+       (apply horizontal
               (map (lambda (arguments)
                      (map (lambda (p)
                             (if (car p)
@@ -174,31 +174,31 @@
    "\n"))
 
 (define (error-link->markup reason exn srcloc dest)
-  (fragments (link->markup reason dest)
-             (if (and exn srcloc) ; FIXME: does not even use exn
-                 (fragments
-                  (string-constant test-engine-check-error-cause) " "
-                  srcloc)
-                 empty-markup)))
+  (horizontal (link->markup reason dest)
+              (if (and exn srcloc) ; FIXME: does not even use exn
+                  (horizontal
+                   (string-constant test-engine-check-error-cause) " "
+                   srcloc)
+                  empty-markup)))
 
 (define (signature-violation->markup violation)
   (let* ((signature (signature-violation-signature violation))
          (stx (signature-syntax signature))
          (srcloc (signature-violation-srcloc violation))
          (message (signature-violation-message violation)))
-    (fragments
+    (horizontal
      (cond
        ((string? message)
         message)
        ((signature-got? message)
         
-        (fragments (string-constant test-engine-got)
-                   " "
-                   (render-value (signature-got-value message))))
+        (horizontal (string-constant test-engine-got)
+                    " "
+                    (render-value (signature-got-value message))))
        (else empty-markup))
     
      (if srcloc
-         (fragments " " srcloc)
+         (horizontal " " srcloc)
          empty-markup)
      ", "
      (string-constant test-engine-signature)
@@ -207,7 +207,7 @@
      (cond
        ((signature-violation-blame violation)
         => (lambda (blame)
-             (fragments
+             (horizontal
               "\n\t"
               (string-constant test-engine-to-blame)
               " "
@@ -230,18 +230,18 @@
      'english
      (lambda ()
        (check-equal? (format->markup "foo ~F bar ~v ~~" 5 #f)
-                     (fragments "foo "
-                                (framed "<5>")
-                                " bar "
-                                "#f"
-                                " \n"))
+                     (horizontal "foo "
+                                 (framed "<5>")
+                                 " bar "
+                                 "#f"
+                                 " \n"))
 
        ;; FIXME: more of these
        (check-equal? (reason->markup
-                      (make-unexpected-error #f #f 'expected "not expected" #f))
-                     (fragments "check-expect encountered the following error instead of the expected value, "
-                                (framed "<expected>")
-                                ". \n   :: not expected\n"))))))
+                      (make-unexpected-error #f 'expected "not expected" #f))
+                     (horizontal "check-expect encountered the following error instead of the expected value, "
+                                 (framed "<'expected>")
+                                 ". \n   :: not expected\n"))))))
                                         
 
 

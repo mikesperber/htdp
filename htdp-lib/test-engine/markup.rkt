@@ -1,10 +1,10 @@
 #lang racket/base
-(provide markup? markup-fragments ; don't want to export markup constructor
+(provide horizontal? horizontal-fragments ; don't want to export markup constructor
+         horizontal
          empty-markup
          (struct-out framed)
          fragment?
          flatten-fragment
-         fragments
          vertical? vertical-fragments
          vertical
          insert-fragment)
@@ -22,24 +22,27 @@
 
 (define (fragment? x)
   (or (string? x)
-      (markup? x)
+      (horizontal-markup? x)
       (vertical-markup? x)
       (srcloc? x)
       (framed? x)))
 
-(struct markup
+(struct horizontal-markup
   (fragments)
   #:transparent)
 
-(define empty-markup (markup '()))
+(define horizontal? horizontal-markup?)
+(define horizontal-fragments horizontal-markup-fragments)
+
+(define empty-markup (horizontal-markup '()))
 
 ; flatten out nested markup elements, merge adjacent strings
-(define (normalize-fragments fragments)
+(define (normalize-horizontal fragments)
   (let ((flattened
          (apply append
                 (map (lambda (fragment)
-                       (if (markup? fragment)
-                           (markup-fragments fragment)
+                       (if (horizontal-markup? fragment)
+                           (horizontal-markup-fragments fragment)
                            (list fragment)))
                      fragments))))
     (merge-adjacent-strings flattened)))
@@ -58,8 +61,8 @@
            (cons (apply string-append strings)
                  after-merged))))))
 
-(define (fragments . fragments)
-  (markup (normalize-fragments fragments)))
+(define (horizontal . fragments)
+  (horizontal-markup (normalize-horizontal fragments)))
 
 (struct vertical-markup
   (fragments)
@@ -86,9 +89,9 @@
 (define (flatten-fragment fragment)
   (cond
     ((string? fragment) fragment)
-    ((markup? fragment)
+    ((horizontal-markup? fragment)
      (apply string-append
-            (map flatten-fragment (markup-fragments fragment))))
+            (map flatten-fragment (horizontal-markup-fragments fragment))))
     ((srcloc? fragment)
      (srcloc->string fragment))
     ((framed? fragment)
@@ -148,10 +151,10 @@
   (cond
     ((string? fragment)
      (send text insert fragment))
-    ((markup? fragment)
+    ((horizontal-markup? fragment)
      (for-each (lambda (fragment)
                  (insert-fragment fragment text src-editor))
-               (markup-fragments fragment)))
+               (horizontal-markup-fragments fragment)))
     ((vertical-markup? fragment)
      (for-each (lambda (fragment)
                  (insert-fragment fragment text src-editor)
@@ -249,9 +252,9 @@
 (define (fragment->block fragment)
   (cond
     ((string? fragment) (list fragment))
-    ((markup? fragment)
+    ((horizontal-markup? fragment)
      (apply append-blocks
-            (map fragment->block (markup-fragments fragment))))
+            (map fragment->block (horizontal-markup-fragments fragment))))
     ((vertical-markup? fragment)
      (normalize-lines
       (apply append
@@ -278,14 +281,14 @@
   (check-equal? (block-box (list "xxx" "yyy" "zzz"))
                 '("┌─────┐" "│ xxx │" "│ yyy │" "│ zzz │" "└─────┘"))
 
-  (check-equal? (fragment->block (fragments "foo" "bar"
-                                            (framed "baz")
-                                            "bam" "wup"))
+  (check-equal? (fragment->block (horizontal "foo" "bar"
+                                             (framed "baz")
+                                             "bam" "wup"))
                 '("      ┌─────┐      " "foobar│ baz │bamwup" "      └─────┘      "))
   
-  (check-equal? (fragment->block (fragments "foo" "bar"
-                                            (framed "baz")
-                                            (vertical "bam" (framed "wup"))))
+  (check-equal? (fragment->block (horizontal "foo" "bar"
+                                             (framed "baz")
+                                             (vertical "bam" (framed "wup"))))
                 '("      ┌─────┐bam    "
                   "foobar│ baz │┌─────┐"
                   "      └─────┘│ wup │"
@@ -296,27 +299,27 @@
       (insert-fragment fragment text #f)
       (send text get-text 0 'eof #t)))
 
-  (check-equal? (fragments "foo" "bar" "baz")
-                (fragments "foobarbaz"))
-  (check-equal? (fragments "foo" "bar"
-                           (fragments "baz" "bla")
+  (check-equal? (horizontal "foo" "bar" "baz")
+                (horizontal "foobarbaz"))
+  (check-equal? (horizontal "foo" "bar"
+                           (horizontal "baz" "bla")
                            "bam" "wup")
-                (fragments "foobarbazblabamwup"))
+                (horizontal "foobarbazblabamwup"))
 
-  (check-equal? (fragments "foo" "bar"
+  (check-equal? (horizontal "foo" "bar"
                            (framed "baz")
                            "bam" "wup")
-                (fragments "foobar" (framed "baz") "bamwup"))
+                (horizontal "foobar" (framed "baz") "bamwup"))
 
   (check-equal? (flatten-fragment "foo") "foo"
                 "String")
-  (check-equal? (flatten-fragment (fragments "foo" "bar" "baz"))
+  (check-equal? (flatten-fragment (horizontal "foo" "bar" "baz"))
                 "foobarbaz"
                 "List of strings")
   (check-equal? (render-fragment-via-text "foo")
                 "foo"
                 "String via text")
-  (check-equal? (render-fragment-via-text (fragments "foo" (framed "bar") "baz"))
+  (check-equal? (render-fragment-via-text (horizontal "foo" (framed "bar") "baz"))
                 "foobarbaz"
                 "Framed via text"))
   

@@ -5,6 +5,8 @@
          fragment?
          flatten-fragment
          fragments
+         vertical? vertical-fragments
+         vertical
          insert-fragment)
 (require racket/gui/base
          racket/list
@@ -21,6 +23,7 @@
 (define (fragment? x)
   (or (string? x)
       (markup? x)
+      (vertical-markup? x)
       (srcloc? x)
       (framed? x)))
 
@@ -58,9 +61,27 @@
 (define (fragments . fragments)
   (markup (normalize-fragments fragments)))
 
+(struct vertical-markup
+  (fragments)
+  #:transparent)
+
+(define vertical? vertical-markup?)
+(define vertical-fragments vertical-markup-fragments)
+
+(define (flatten-vertical fragments)
+  (apply append
+         (map (lambda (fragment)
+                (if (vertical-markup? fragment)
+                    (vertical-markup-fragments fragment)
+                    (list fragment)))
+              fragments)))
+
+(define (vertical . fragments)
+  (vertical-markup (flatten-vertical fragments)))
+
 (struct framed
   (fragment)
-    #:transparent)
+  #:transparent)
 
 (define (flatten-fragment fragment)
   (cond
@@ -131,6 +152,11 @@
      (for-each (lambda (fragment)
                  (insert-fragment fragment text src-editor))
                (markup-fragments fragment)))
+    ((vertical-markup? fragment)
+     (for-each (lambda (fragment)
+                 (insert-fragment fragment text src-editor)
+                 (send text insert #\newline))
+               (vertical-markup-fragments fragment)))
     ((srcloc? fragment)
      (insert-srcloc fragment text src-editor))
     ((framed? fragment)
@@ -208,12 +234,28 @@
               (newline port))
             block))
 
+(define (pad-to line width)
+  (let ((diff (max 0 (- width (string-length line)))))
+    (if (zero? diff)
+        line
+        (string-append line (make-string diff #\space)))))
+
+(define (normalize-lines lines)
+  (let ((width (apply max (map string-length lines))))
+    (map (lambda (line)
+           (pad-to line width))
+         lines)))
+
 (define (fragment->block fragment)
   (cond
     ((string? fragment) (list fragment))
     ((markup? fragment)
      (apply append-blocks
             (map fragment->block (markup-fragments fragment))))
+    ((vertical-markup? fragment)
+     (normalize-lines
+      (apply append
+             (map fragment->block (vertical-markup-fragments fragment)))))
     ((srcloc? fragment)
      (list (srcloc->string fragment)))
     ((framed? fragment)
@@ -240,6 +282,14 @@
                                             (framed "baz")
                                             "bam" "wup"))
                 '("      ┌─────┐      " "foobar│ baz │bamwup" "      └─────┘      "))
+  
+  (check-equal? (fragment->block (fragments "foo" "bar"
+                                            (framed "baz")
+                                            (vertical "bam" (framed "wup"))))
+                '("      ┌─────┐bam    "
+                  "foobar│ baz │┌─────┐"
+                  "      └─────┘│ wup │"
+                  "             └─────┘"))
   
   (define (render-fragment-via-text fragment)
     (let ((text (new text%)))

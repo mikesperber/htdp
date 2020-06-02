@@ -1,6 +1,6 @@
 #lang racket/base
 (provide markup? markup-fragments ; don't want to export markup constructor
-         no-markup
+         empty-markup
          (struct-out framed)
          fragment?
          flatten-fragment
@@ -31,7 +31,7 @@
   (fragments)
   #:transparent)
 
-(define no-markup (markup '()))
+(define empty-markup (markup '()))
 
 ; flatten out nested markup elements, merge adjacent strings
 (define (normalize-fragments fragments)

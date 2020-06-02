@@ -179,7 +179,7 @@
                  (fragments
                   (string-constant test-engine-check-error-cause) " "
                   srcloc)
-                 no-markup)))
+                 empty-markup)))
 
 (define (signature-violation->markup violation)
   (let* ((signature (signature-violation-signature violation))
@@ -195,11 +195,11 @@
         (fragments (string-constant test-engine-got)
                    " "
                    (render-value (signature-got-value message))))
-       (else no-markup))
+       (else empty-markup))
     
      (if srcloc
          (fragments " " srcloc)
-         no-markup)
+         empty-markup)
      ", "
      (string-constant test-engine-signature)
      " "
@@ -212,7 +212,7 @@
               (string-constant test-engine-to-blame)
               " "
               (syntax-srcloc blame))))
-       (else no-markup)))))
+       (else empty-markup)))))
 
 (define (syntax-srcloc stx)
   (srcloc (syntax-source stx)

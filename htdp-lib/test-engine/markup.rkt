@@ -7,17 +7,9 @@
          flatten-fragment
          vertical? vertical-fragments
          vertical)
-(require racket/gui/base
-         racket/list
-         (only-in racket/class send make-object is-a? new) ;; FIXME: zap
-         racket/snip
-         framework)
+(require racket/list)
 
-; TODO: box
-; TODO: test
-; TODO: change code to use it
 ; TODO: styled
-; TODO: separate rendering from representation
 
 (define (fragment? x)
   (or (string? x)

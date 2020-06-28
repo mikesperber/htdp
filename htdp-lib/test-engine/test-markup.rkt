@@ -21,8 +21,7 @@
                            (failed-check-srcloc? failed-check)
                            (check-fail-src (failed-check-reason failed-check)))
        (link->markup (failed-check-reason failed-check)
-                     (check-fail-src (failed-check-reason failed-check))))
-   "\n"))
+                     (check-fail-src (failed-check-reason failed-check))))))
 
 (define (link->markup reason dest)
   (horizontal
@@ -73,105 +72,111 @@
 (define (format->markup format-string . vals)
   (let loop ((chars (string->list format-string))
              (vals vals)
-             (rev-fragments '()))
+             (rev-fragments '())
+             (rev-lines '()))
     (cond
       ((null? chars)
-       (apply horizontal (reverse rev-fragments))) ; this will normalize
+       (apply vertical
+              (reverse (cons (apply horizontal (reverse rev-fragments))
+                             (reverse rev-lines))))) ; this will normalize
       ((char=? (car chars) #\~)
        (case (cadr chars)
-         ((#\n #\~) (loop (cddr chars) vals (cons "\n" rev-fragments)))
+         ((#\n #\~) (loop (cddr chars) vals
+                          '()
+                          (cons (apply horizontal (reverse rev-fragments))
+                                rev-lines)))
          ((#\F #\f)
           (loop (cddr chars)
                 (cdr vals)
-                (cons (framed (render-value (car vals))) rev-fragments)))
+                (cons (framed (render-value (car vals))) rev-fragments)
+                rev-lines))
          (else
           (loop (cddr chars)
                 (cdr vals)
-                (cons (format (string #\~ (cadr chars)) (car vals)) rev-fragments)))))
+                (cons (format (string #\~ (cadr chars)) (car vals)) rev-fragments)
+                rev-lines))))
       (else
        (let inner-loop ((chars chars)
                         (rev-seen '()))
          (if (or (null? chars)
                  (char=? (car chars) #\~))
-             (loop chars vals (cons (list->string (reverse rev-seen)) rev-fragments))
+             (loop chars vals (cons (list->string (reverse rev-seen)) rev-fragments) rev-lines)
              (inner-loop (cdr chars) (cons (car chars) rev-seen))))))))
 
 (define (reason->markup fail)
-  (horizontal
-   (cond
-     [(unexpected-error? fail)
-      (format->markup (string-constant test-engine-check-encountered-error)
-                      (unexpected-error-expected fail)
-                      (unexpected-error-message fail))]
-     [(unsatisfied-error? fail)
-      (format->markup
-       "check-satisfied encountered an error instead of the expected kind of value, ~F. \n  :: ~a"
-       (unsatisfied-error-expected fail)
-       (unsatisfied-error-message fail))]
-     [(unequal? fail)
-      (format->markup (string-constant test-engine-actual-value-differs-error)
-                      (unequal-test fail)
-                      (unequal-actual fail))]
-     [(satisfied-failed? fail)
-      (format->markup "Actual value ~F does not satisfy ~a."
-                      (satisfied-failed-actual fail)
-                      (satisfied-failed-name fail))]
-     [(outofrange? fail)
-      (if (string-constant-in-current-language? test-engine-actual-value-not-within-error)
-          (format->markup (string-constant test-engine-actual-value-not-within-error)
-                          (outofrange-test fail)
-                          (outofrange-range fail)
-                          (outofrange-actual fail))
-          (format->markup (string-constant test-engine-actual-value-not-within-error/alt-order)
-                          (outofrange-test fail)
-                          (outofrange-actual fail)
-                          (outofrange-range fail)))]
-     [(incorrect-error? fail)
-      (format->markup (string-constant test-engine-encountered-error-error)
-                      (incorrect-error-expected fail)
-                      (incorrect-error-message fail))]
-     [(expected-error? fail)
-      (format->markup (string-constant test-engine-expected-error-error)
-                      (expected-error-value fail)
-                      (expected-error-message fail))]
-     [(expected-an-error? fail)
-      (format->markup (string-constant test-engine-expected-an-error-error)
-                      (expected-an-error-value fail))]
-     [(message-error? fail)
-      (apply horizontal (message-error-strings fail))]
-     [(not-mem? fail)
-      (horizontal
-       (format->markup (string-constant test-engine-not-mem-error)
-                       (not-mem-test fail))
-       (apply horizontal
-              (map (lambda (a)
-                     (format->markup " ~F" a))
-                   (not-mem-set fail)))
-       ".")]
-     [(not-range? fail)
-      (format->markup (string-constant test-engine-not-range-error)
-                      (not-range-test fail)
-                      (not-range-min fail)
-                      (not-range-max fail))]
-     [(unimplemented-wish? fail)
-      (format->markup "Test relies on a call to wished for function ~F that has not been implemented, with arguments ~F."
-                      (symbol->string (unimplemented-wish-name fail))
-                      (unimplemented-wish-args fail))]
-     [(property-fail? fail)
-      (horizontal 
-       (string-constant test-engine-property-fail-error)
-       (apply horizontal
-              (map (lambda (arguments)
-                     (map (lambda (p)
-                            (if (car p)
-                                (format->markup " ~a = ~F" (car p) (cdr p))
-                                (format->markup "~F" (cdr p))))
-                          arguments))
-                   (result-arguments-list (property-fail-result fail)))))]
-     [(property-error? fail)
-      (format->markup (string-constant test-engine-property-error-error)
-                      (property-error-message fail))])
-   "\n"))
+  (cond
+    [(unexpected-error? fail)
+     (format->markup (string-constant test-engine-check-encountered-error)
+                     (unexpected-error-expected fail)
+                     (unexpected-error-message fail))]
+    [(unsatisfied-error? fail)
+     (format->markup
+      "check-satisfied encountered an error instead of the expected kind of value, ~F. \n  :: ~a"
+      (unsatisfied-error-expected fail)
+      (unsatisfied-error-message fail))]
+    [(unequal? fail)
+     (format->markup (string-constant test-engine-actual-value-differs-error)
+                     (unequal-test fail)
+                     (unequal-actual fail))]
+    [(satisfied-failed? fail)
+     (format->markup "Actual value ~F does not satisfy ~a."
+                     (satisfied-failed-actual fail)
+                     (satisfied-failed-name fail))]
+    [(outofrange? fail)
+     (if (string-constant-in-current-language? test-engine-actual-value-not-within-error)
+         (format->markup (string-constant test-engine-actual-value-not-within-error)
+                         (outofrange-test fail)
+                         (outofrange-range fail)
+                         (outofrange-actual fail))
+         (format->markup (string-constant test-engine-actual-value-not-within-error/alt-order)
+                         (outofrange-test fail)
+                         (outofrange-actual fail)
+                         (outofrange-range fail)))]
+    [(incorrect-error? fail)
+     (format->markup (string-constant test-engine-encountered-error-error)
+                     (incorrect-error-expected fail)
+                     (incorrect-error-message fail))]
+    [(expected-error? fail)
+     (format->markup (string-constant test-engine-expected-error-error)
+                     (expected-error-value fail)
+                     (expected-error-message fail))]
+    [(expected-an-error? fail)
+     (format->markup (string-constant test-engine-expected-an-error-error)
+                     (expected-an-error-value fail))]
+    [(message-error? fail)
+     (apply horizontal (message-error-strings fail))]
+    [(not-mem? fail)
+     (horizontal
+      (format->markup (string-constant test-engine-not-mem-error)
+                      (not-mem-test fail))
+      (apply horizontal
+             (map (lambda (a)
+                    (format->markup " ~F" a))
+                  (not-mem-set fail)))
+      ".")]
+    [(not-range? fail)
+     (format->markup (string-constant test-engine-not-range-error)
+                     (not-range-test fail)
+                     (not-range-min fail)
+                     (not-range-max fail))]
+    [(unimplemented-wish? fail)
+     (format->markup "Test relies on a call to wished for function ~F that has not been implemented, with arguments ~F."
+                     (symbol->string (unimplemented-wish-name fail))
+                     (unimplemented-wish-args fail))]
+    [(property-fail? fail)
+     (horizontal 
+      (string-constant test-engine-property-fail-error)
+      (apply horizontal
+             (map (lambda (arguments)
+                    (map (lambda (p)
+                           (if (car p)
+                               (format->markup " ~a = ~F" (car p) (cdr p))
+                               (format->markup "~F" (cdr p))))
+                         arguments))
+                  (result-arguments-list (property-fail-result fail)))))]
+    [(property-error? fail)
+     (format->markup (string-constant test-engine-property-error-error)
+                     (property-error-message fail))]))
 
 (define (error-link->markup reason exn srcloc dest)
   (horizontal (link->markup reason dest)
@@ -208,7 +213,7 @@
        ((signature-violation-blame violation)
         => (lambda (blame)
              (horizontal
-              "\n\t"
+              "\t"
               (string-constant test-engine-to-blame)
               " "
               (syntax-srcloc blame))))
@@ -222,6 +227,20 @@
 (module+ test
   (require rackunit)
 
+    (parameterize
+      ((render-value-parameter
+        (lambda (v)
+          (format "<~V>" v))))
+      (check-equal? (format->markup "abc")
+                    "abc")
+      (check-equal? (format->markup "foo ~F bar ~v~~bar" 5 #f)
+                    (vertical
+                     (horizontal "foo "
+                                 (framed "<5>")
+                                 " bar "
+                                 "#f")
+                     "bar")))
+  
   (parameterize
       ((render-value-parameter
         (lambda (v)
@@ -229,19 +248,14 @@
     (call-with-current-language
      'english
      (lambda ()
-       (check-equal? (format->markup "foo ~F bar ~v ~~" 5 #f)
-                     (horizontal "foo "
-                                 (framed "<5>")
-                                 " bar "
-                                 "#f"
-                                 " \n"))
-
        ;; FIXME: more of these
        (check-equal? (reason->markup
                       (make-unexpected-error #f 'expected "not expected" #f))
-                     (horizontal "check-expect encountered the following error instead of the expected value, "
-                                 (framed "<'expected>")
-                                 ". \n   :: not expected\n"))))))
-                                        
+                     (vertical
+                      (horizontal
+                       "check-expect encountered the following error instead of the expected value, "
+                       (framed "<'expected>")
+                       ". ")
+                      "   :: not expected"))))))
 
 

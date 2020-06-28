@@ -1,7 +1,7 @@
 #lang racket/base
 (provide horizontal? horizontal-fragments ; don't want to export markup constructor
          horizontal
-         empty-markup
+         empty-markup empty-markup?
          (struct-out framed)
          fragment?
          flatten-fragment
@@ -35,6 +35,9 @@
 (define horizontal-fragments horizontal-markup-fragments)
 
 (define empty-markup (horizontal-markup '()))
+(define (empty-markup? markup)
+  (and (horizontal-markup? markup)
+       (empty? (horizontal-markup-fragments markup))))
 
 ; flatten out nested markup elements, merge adjacent strings
 (define (normalize-horizontal fragments)

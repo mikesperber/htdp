@@ -5,6 +5,7 @@
          racket/gui/base
          framework
          test-engine/markup
+         test-engine/markup-gui
          test-engine/test-markup
          test-engine/test-engine
          string-constants)

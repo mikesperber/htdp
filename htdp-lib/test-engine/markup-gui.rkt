@@ -2,7 +2,7 @@
 (provide insert-fragment)
 (require test-engine/markup
          racket/gui/base
-         (only-in racket/class send make-object is-a? new) ;; FIXME: zap
+         (only-in racket/class send make-object is-a? new)
          racket/snip
          framework)
 

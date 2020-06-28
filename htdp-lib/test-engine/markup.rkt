@@ -65,7 +65,12 @@
                  after-merged))))))
 
 (define (horizontal . fragments)
-  (horizontal-markup (normalize-horizontal fragments)))
+  (let ((fragments (normalize-horizontal fragments)))
+    (cond
+      ((null? fragments) empty-markup)
+      ((null? (cdr fragments))
+       (car fragments))
+      (else (horizontal-markup fragments)))))
 
 (struct vertical-markup
   (fragments)
@@ -77,13 +82,22 @@
 (define (flatten-vertical fragments)
   (apply append
          (map (lambda (fragment)
-                (if (vertical-markup? fragment)
-                    (vertical-markup-fragments fragment)
-                    (list fragment)))
+                (cond
+                  ((empty-markup? fragment) '())
+                  ((vertical-markup? fragment)
+                   (vertical-markup-fragments fragment))
+                  (else (list fragment))))
               fragments)))
 
 (define (vertical . fragments)
-  (vertical-markup (flatten-vertical fragments)))
+  (let ((fragments (flatten-vertical fragments)))
+    (cond
+      ((null? fragments)
+       empty-markup)
+      ((null? (cdr fragments))
+       (car fragments))
+      (else
+       (vertical-markup fragments)))))
 
 (struct framed
   (fragment)
@@ -303,17 +317,31 @@
       (send text get-text 0 'eof #t)))
 
   (check-equal? (horizontal "foo" "bar" "baz")
-                (horizontal "foobarbaz"))
+                "foobarbaz")
   (check-equal? (horizontal "foo" "bar"
                            (horizontal "baz" "bla")
                            "bam" "wup")
-                (horizontal "foobarbazblabamwup"))
+                "foobarbazblabamwup")
 
   (check-equal? (horizontal "foo" "bar"
                            (framed "baz")
                            "bam" "wup")
                 (horizontal "foobar" (framed "baz") "bamwup"))
-
+  (check-equal? (vertical)
+                empty-markup)
+  (check-equal? (vertical "foo")
+                "foo")
+  (check-equal? (vertical "foo")
+                "foo")
+  (check-equal? (vertical "foo" empty-markup)
+                "foo")
+  (check-equal? (vertical "foo" empty-markup "bar")
+                (vertical "foo" "bar"))
+  (check-equal? (vertical "foo" "bar")
+                (vertical-markup '("foo" "bar")))
+  (check-equal? (vertical "foo" (vertical "bla" "baz") "bar")
+                (vertical "foo" "bla" "baz" "bar"))
+                          
   (check-equal? (flatten-fragment "foo") "foo"
                 "String")
   (check-equal? (flatten-fragment (horizontal "foo" "bar" "baz"))

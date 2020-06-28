@@ -74,12 +74,15 @@
                       (insert-fragment (framed-fragment fragment) text src-editor))
                     text src-editor))))
 
+(define framed-text%
+  (text:wide-snip-mixin
+   (text:basic-mixin
+    (editor:standard-style-list-mixin
+     (editor:basic-mixin
+      text%)))))
+
 (define (insert-framed insert-text text src-editor)
-  (let* ([framed-text (new (text:wide-snip-mixin ; FIXME: make a constant class here
-                            (text:basic-mixin
-                             (editor:standard-style-list-mixin
-                              (editor:basic-mixin
-                               text%)))))]
+  (let* ([framed-text (new framed-text%)]
          [snip (new editor-snip% [editor framed-text])])
     (send snip use-style-background #t)
     (insert-text framed-text)

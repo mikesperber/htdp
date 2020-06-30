@@ -3,7 +3,7 @@
          horizontal
          empty-markup empty-markup?
          (struct-out framed)
-         fragment?
+         markup?
          flatten-fragment
          vertical? vertical-fragments
          vertical)
@@ -11,7 +11,7 @@
 
 ; TODO: styled
 
-(define (fragment? x)
+(define (markup? x)
   (or (string? x)
       (empty? x)
       (horizontal-markup? x)

@@ -1,5 +1,5 @@
 #lang racket/base
-(provide insert-fragment)
+(provide insert-markup)
 (require test-engine/markup
          racket/gui/base
          (only-in racket/class send make-object is-a? new)
@@ -54,24 +54,24 @@
                     (loop (cdr tabs) (add1 i))))))
           (send frame show #t))))))
 
-(define (insert-fragment fragment text src-editor)
+(define (insert-markup fragment text src-editor)
   (cond
     ((string? fragment)
      (send text insert fragment))
     ((horizontal? fragment)
      (for-each (lambda (fragment)
-                 (insert-fragment fragment text src-editor))
+                 (insert-markup fragment text src-editor))
                (horizontal-fragments fragment)))
     ((vertical? fragment)
      (for-each (lambda (fragment)
-                 (insert-fragment fragment text src-editor)
+                 (insert-markup fragment text src-editor)
                  (send text insert #\newline))
                (vertical-fragments fragment)))
     ((srcloc? fragment)
      (insert-srcloc fragment text src-editor))
     ((framed? fragment)
      (insert-framed (lambda (text)
-                      (insert-fragment (framed-fragment fragment) text src-editor))
+                      (insert-markup (framed-fragment fragment) text src-editor))
                     text src-editor))))
 
 (define framed-text%
@@ -97,7 +97,7 @@
          (text (new text%))
          (canvas (new editor-canvas% [parent frame])))
     (send canvas set-editor text)
-    (insert-fragment fragment text text)
+    (insert-markup fragment text text)
     (send text lock #t)
     (send frame show #t)))
 
@@ -107,7 +107,7 @@
 
   (define (render-fragment-via-text fragment)
     (let ((text (new text%)))
-      (insert-fragment fragment text #f)
+      (insert-markup fragment text #f)
       (send text get-text 0 'eof #t)))
 
   (check-equal? (render-fragment-via-text "foo")

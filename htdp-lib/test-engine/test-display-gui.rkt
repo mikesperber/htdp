@@ -64,7 +64,7 @@
    (else #f)))
 
 (define (insert-test-results editor test-object src-editor)
-  (insert-fragment (test-object->markup test-object) editor src-editor)
+  (insert-markup (test-object->markup test-object) editor src-editor)
 
   (send editor change-style
         (send (editor:get-standard-style-list) find-named-style

@@ -13,10 +13,19 @@
 
 (define (fragment? x)
   (or (string? x)
+      (empty? x)
       (horizontal-markup? x)
       (vertical-markup? x)
       (srcloc? x)
       (framed? x)))
+
+(struct empty
+  ()
+  #:transparent)
+
+(define empty-markup (empty))
+(define (empty-markup? thing)
+  (empty? thing))
 
 (struct horizontal-markup
   (fragments)
@@ -25,20 +34,19 @@
 (define horizontal? horizontal-markup?)
 (define horizontal-fragments horizontal-markup-fragments)
 
-(define empty-markup (horizontal-markup '()))
-(define (empty-markup? markup)
-  (and (horizontal-markup? markup)
-       (empty? (horizontal-markup-fragments markup))))
+(define newline (horizontal-markup '()))
 
 ; flatten out nested markup elements, merge adjacent strings
 (define (normalize-horizontal fragments)
   (let ((flattened
-         (apply append
-                (map (lambda (fragment)
-                       (if (horizontal-markup? fragment)
-                           (horizontal-markup-fragments fragment)
-                           (list fragment)))
-                     fragments))))
+         (append-map (lambda (fragment)
+                       (cond
+                         ((empty? fragment) '())
+                         ((horizontal-markup? fragment)
+                          (horizontal-markup-fragments fragment))
+                         (else
+                          (list fragment))))
+                     fragments)))
     (merge-adjacent-strings flattened)))
 
 (define (merge-adjacent-strings fragments)
@@ -71,14 +79,13 @@
 (define vertical-fragments vertical-markup-fragments)
 
 (define (flatten-vertical fragments)
-  (apply append
-         (map (lambda (fragment)
+  (append-map (lambda (fragment)
                 (cond
-                  ((empty-markup? fragment) '())
+                  ((empty? fragment) '())
                   ((vertical-markup? fragment)
                    (vertical-markup-fragments fragment))
                   (else (list fragment))))
-              fragments)))
+              fragments))
 
 (define (vertical . fragments)
   (let ((fragments (flatten-vertical fragments)))
@@ -230,6 +237,8 @@
                 "foo")
   (check-equal? (vertical "foo" empty-markup "bar")
                 (vertical "foo" "bar"))
+  (check-equal? (vertical "foo" newline "bar")
+                (vertical "foo" newline "bar"))
   (check-equal? (vertical "foo" "bar")
                 (vertical-markup '("foo" "bar")))
   (check-equal? (vertical "foo" (vertical "bla" "baz") "bar")

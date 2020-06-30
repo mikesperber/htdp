@@ -1,8 +1,7 @@
 #lang racket/base
 
 (provide render-value-parameter
-         failed-check->markup
-         signature-violation->markup)
+         test-object->markup)
 
 (require string-constants
          "test-info.rkt"
@@ -11,6 +10,90 @@
          test-engine/markup
          (except-in deinprogramm/signature/signature signature-violation) ; clashes with test-engine
          deinprogramm/quickcheck/quickcheck)
+
+(define (test-object->markup test-object)
+  (let* ([total-checks (test-object-checks-count test-object)]
+         [failed-checks (test-object-failed-checks-count test-object)]
+         [violated-signatures (test-object-signature-violations test-object)] ; FIXME name
+         [wishes (test-object-wishes test-object)]
+         [total-wishes (length wishes)]
+         [total-wish-calls (test-object-called-wishes test-object)])
+         
+    (vertical
+     (cond
+       [(zero? total-checks)
+        (vertical (string-constant test-engine-must-be-tested)
+                  empty-markup)]
+       [(= 1 total-checks) 
+        (vertical (string-constant test-engine-ran-1-test)
+                  empty-markup)]
+       [else
+        (vertical
+         (format (string-constant test-engine-ran-n-tests) total-checks)
+         empty-markup)])
+
+     newline
+
+     (cond 
+       [(null? wishes) empty-markup]
+       [(= 1 total-wishes)
+        (format "Wished for function ~a has not been implemented." (car wishes))]
+       [(= 2 total-wishes)
+        (format "Wished for functions ~a and ~a have not been implemented."
+                (car wishes) (cadr wishes))]
+       [else (format "Wished for functions ~a have not been implemented."
+                     (format-list wishes))])
+
+     (if (> total-checks 0)
+         (vertical
+          (cond
+            [(and (zero? failed-checks) (= 1 total-checks))
+             (string-constant test-engine-1-check-passed)]
+            [(zero? failed-checks) 
+             (string-constant test-engine-all-tests-passed)]
+            [(= failed-checks total-checks)
+             (string-constant test-engine-0-tests-passed)]
+            [else (format (string-constant test-engine-m-of-n-tests-failed)
+                          failed-checks total-checks)])
+          newline)
+         empty-markup)
+
+     (cond
+       ((null? violated-signatures)
+        (string-constant test-engine-no-signature-violations))
+       ((null? (cdr violated-signatures))
+        (string-constant test-engine-1-signature-violation))
+       (else
+        (format (string-constant test-engine-n-signature-violations)
+                (length violated-signatures))))
+
+     newline
+
+     (check-failures->markup (test-object-failed-checks test-object))
+     (signature-violations->markup violated-signatures))))
+
+(define (format-list l)
+  (cond
+   [(null? (cdr l)) (format "and ~a" (car l))]
+   [else (format "~a, ~a" (car l) (format-list (cdr l)))]))
+
+(define (check-failures->markup checks)
+  (if (pair? checks)
+      (vertical (string-constant test-engine-check-failures)
+                (apply vertical
+                       (map  failed-check->markup
+                             (reverse checks))))
+      empty-markup))
+
+(define (signature-violations->markup violations)
+  (if (pair? violations)
+      (vertical (string-constant test-engine-signature-violations)
+                (apply vertical
+                       (map (lambda (violation)
+                              (horizontal "\t"
+                                          (signature-violation->markup violation)))
+                            violations)))
+      empty-markup))
 
 (define (failed-check->markup failed-check)
   (horizontal

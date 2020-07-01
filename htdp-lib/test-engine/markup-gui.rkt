@@ -70,9 +70,7 @@
     ((srcloc? markup)
      (insert-srcloc markup text src-editor))
     ((framed-markup? markup)
-     (insert-framed (lambda (text)
-                      (insert-markup (framed-markup markup) text src-editor))
-                    text src-editor))))
+     (insert-framed (framed-markup markup) text src-editor))))
 
 (define framed-text%
   (text:wide-snip-mixin
@@ -81,11 +79,11 @@
      (editor:basic-mixin
       text%)))))
 
-(define (insert-framed insert-text text src-editor)
+(define (insert-framed markup text src-editor)
   (let* ([framed-text (new framed-text%)]
          [snip (new editor-snip% [editor framed-text])])
     (send snip use-style-background #t)
-    (insert-text framed-text)
+    (insert-markup markup framed-text src-editor)
     (send framed-text lock #t)
     (send text insert snip)))
 

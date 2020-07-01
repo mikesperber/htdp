@@ -4,10 +4,12 @@
          vertical-markup vertical
          vertical-markup? vertical-markups
          empty-markup empty-markup?
+         empty-line
          framed
          framed-markup? framed-markup
          markup?
-         flatten-markup)
+         flatten-markup
+         display-markup)
 (require racket/list)
 
 ; TODO: styled
@@ -34,7 +36,7 @@
 
 (define horizontal-markups horizontal-markup-markups)
 
-(define newline (horizontal-markup '()))
+(define empty-line (horizontal-markup '()))
 
 ; flatten out nested markup elements, merge adjacent strings
 (define (normalize-horizontal markups)
@@ -180,12 +182,17 @@
             (map markup->block (horizontal-markup-markups markup))))
     ((vertical-markup? markup)
      (normalize-lines
-      (apply append
-             (map markup->block (vertical-markup-markups markup)))))
+      (append-map markup->block (vertical-markup-markups markup))))
     ((srcloc? markup)
      (list (srcloc->string markup)))
     ((framed? markup)
      (block-box (markup->block (framed-markup markup))))))
+
+(define display-markup
+  (case-lambda
+    ((markup) (display-markup markup (current-output-port)))
+    ((markup port)
+     (block-display port (markup->block markup)))))
 
 (module+ test
   (require rackunit)
@@ -238,8 +245,8 @@
                 "foo")
   (check-equal? (vertical "foo" empty-markup "bar")
                 (vertical "foo" "bar"))
-  (check-equal? (vertical "foo" newline "bar")
-                (vertical "foo" newline "bar"))
+  (check-equal? (vertical "foo" empty-line "bar")
+                (vertical "foo" empty-line "bar"))
   (check-equal? (vertical "foo" "bar")
                 (vertical-markup '("foo" "bar")))
   (check-equal? (vertical "foo" (vertical "bla" "baz") "bar")

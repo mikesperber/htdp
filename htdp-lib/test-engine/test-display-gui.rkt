@@ -1,5 +1,5 @@
 #lang racket/base
-(provide test-panel% test-window% test-display%)
+(provide test-panel% test-window% test-display-results/gui!)
 
 (require racket/class
          racket/gui/base
@@ -9,6 +9,25 @@
          test-engine/test-markup
          test-engine/test-engine
          string-constants)
+
+(define (test-display-results/gui! display-rep display-event-space test-object)
+  (let ((test-display (make-object test-display% test-object))
+        (render-value-proc (render-value-parameter)))
+    (cond
+     [(and display-rep display-event-space)
+      (parameterize ([(dynamic-require 'mred/mred 'current-eventspace) display-event-space])
+	((dynamic-require 'mred/mred 'queue-callback)
+	 (lambda ()
+           (parameterize ([render-value-parameter render-value-proc])
+             (send display-rep display-test-results test-display)))))]
+     [display-event-space 
+      (parameterize ([(dynamic-require 'mred/mred 'current-eventspace) display-event-space])
+	((dynamic-require 'mred/mred 'queue-callback)
+         (lambda ()
+           (parameterize ([render-value-parameter render-value-proc])
+             (send test-display display-results)))))]
+     [else
+      (error "no connection to test display")])))
 
 (define test-display%
   (class* object% ()

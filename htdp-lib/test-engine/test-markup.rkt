@@ -3,7 +3,8 @@
 (provide render-value-parameter
          test-object->markup)
 
-(require string-constants
+(require (only-in racket/string string-split)
+         string-constants
          "test-info.rkt"
          "test-engine.rkt"
          test-engine/render-value
@@ -32,7 +33,7 @@
          (format (string-constant test-engine-ran-n-tests) total-checks)
          empty-markup)])
 
-     newline
+     empty-line
 
      (cond 
        [(null? wishes) empty-markup]
@@ -55,7 +56,7 @@
              (string-constant test-engine-0-tests-passed)]
             [else (format (string-constant test-engine-m-of-n-tests-failed)
                           failed-checks total-checks)])
-          newline)
+          empty-line)
          empty-markup)
 
      (cond
@@ -67,7 +68,7 @@
         (format (string-constant test-engine-n-signature-violations)
                 (length violated-signatures))))
 
-     newline
+     empty-line
 
      (check-failures->markup (test-object-failed-checks test-object))
      (signature-violations->markup violated-signatures))))
@@ -88,16 +89,16 @@
 (define (signature-violations->markup violations)
   (if (pair? violations)
       (vertical (string-constant test-engine-signature-violations)
-                (apply vertical
-                       (map (lambda (violation)
-                              (horizontal "\t"
-                                          (signature-violation->markup violation)))
-                            violations)))
+                (vertical-markup
+                 (map (lambda (violation)
+                        (horizontal "        "
+                                    (signature-violation->markup violation)))
+                      violations)))
       empty-markup))
 
 (define (failed-check->markup failed-check)
   (horizontal
-   "\t"
+   "        "
    (if (failed-check-exn? failed-check)
        (error-link->markup (failed-check-reason failed-check)
                            (failed-check-exn? failed-check)
@@ -171,7 +172,7 @@
          ((#\F #\f)
           (loop (cddr chars)
                 (cdr vals)
-                (cons (framed (render-value (car vals))) rev-markups)
+                (cons (framed (value->markup (car vals))) rev-markups)
                 rev-lines))
          (else
           (loop (cddr chars)
@@ -185,6 +186,11 @@
                  (char=? (car chars) #\~))
              (loop chars vals (cons (list->string (reverse rev-seen)) rev-markups) rev-lines)
              (inner-loop (cdr chars) (cons (car chars) rev-seen))))))))
+
+(define (value->markup value)
+  (let* ((text (render-value value))
+         (lines (string-split text "\n")))
+    (vertical-markup lines)))
 
 (define (reason->markup fail)
   (cond
@@ -296,7 +302,7 @@
        ((signature-violation-blame violation)
         => (lambda (blame)
              (horizontal
-              "\t"
+              "        "
               (string-constant test-engine-to-blame)
               " "
               (syntax-srcloc blame))))

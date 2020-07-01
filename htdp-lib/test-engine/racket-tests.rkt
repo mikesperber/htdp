@@ -14,9 +14,10 @@
          lang/private/rewrite-error-message
          (for-syntax #;"requiring from" lang/private/firstorder #;"avoids load cycle")
 	 (except-in deinprogramm/signature/signature signature-violation)
-         "test-engine.rkt"
-         "test-info.rkt"
-	 "srcloc.rkt")
+         test-engine/test-display
+         test-engine/test-engine
+         test-engine/test-info
+	 test-engine/srcloc)
 
 (require (for-syntax stepper/private/syntax-property))
 (require  syntax/macro-testing)
@@ -462,16 +463,10 @@
   (run-tests!))
 
 (define (display-results*)
-  (let ((display-data (scheme-test-data)))
-    (let ((display-rep (car display-data))
-	  (display-event-space (cadr display-data))
-	  (test-display% (caddr display-data)))
-      (display "display-results*" (current-error-port))
-      (newline (current-error-port))
-      (test-display-results! display-rep display-event-space test-display%)))
-  ;;(send test-engine setup-display (car display-data) (cadr display-data))
-  ;;(send test-engine summarize-results (current-output-port))))))
-  'FIXME)
+  ;; FIXME
+  (display "display-results*" (current-error-port))
+  (newline (current-error-port))
+  (display-test-results! (current-test-object)))
 
 (define-syntax (display-results stx) 
   (syntax-case stx ()
@@ -481,8 +476,4 @@
       'test-call #t)]))
 (provide run-tests display-results test reset-tests)
 
-;; the teaching languages bind this to something like this:
-;; (list (drscheme:rep:current-rep) drs-eventspace test-display%)
-(define scheme-test-data (make-parameter (list #f #f #f)))
-
-(provide scheme-test-data test-execute test-silence error-handler)
+(provide test-execute test-silence error-handler)

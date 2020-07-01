@@ -36,9 +36,9 @@
 
          (only-in test-engine/racket-gui make-formatter)
          (only-in test-engine/racket-tests
-                  scheme-test-data error-handler test-execute display-results
-		  reset-tests)
+                  test-execute reset-tests)
          test-engine/test-display-gui
+         test-engine/test-display
          test-engine/render-value
          deinprogramm/signature/signature)
 
@@ -172,7 +172,11 @@
                      => (lambda (engine)
                           (send (send engine get-info) signature-failed
                                 obj signature message blame))))))
-               (scheme-test-data (list (drscheme:rep:current-rep) drs-eventspace test-display%))
+               (display-test-results-parameter
+                (lambda (test-object)
+                  (test-display-results/gui! (drscheme:rep:current-rep)
+                                             drs-eventspace
+                                             test-object)))
                (test-execute tests-on?)
                (signature-checking-enabled?
                 (get-preference 'signatures:enable-checking? (lambda () #t)))
@@ -191,7 +195,7 @@
               (λ (value port [depth 0])
                 (teaching-language-render-value/format my-setup-printing-parameters
                                                        value settings port 'infinity))))))
-          
+
         (define/private (teaching-languages-error-value->string settings v len)
           (let ([sp (open-output-string)])
             (set-printing-parameters settings (λ () (print v sp)))

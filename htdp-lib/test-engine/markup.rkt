@@ -1,12 +1,13 @@
 #lang racket/base
-(provide horizontal? horizontal-markups ; don't want to export markup constructor
-         horizontal
+(provide horizontal-markup horizontal
+         horizontal-markup? horizontal-markups
+         vertical-markup vertical
+         vertical-markup? vertical-markups
          empty-markup empty-markup?
-         (struct-out framed)
+         framed
+         framed-markup? framed-markup
          markup?
-         flatten-markup
-         vertical? vertical-markups
-         vertical)
+         flatten-markup)
 (require racket/list)
 
 ; TODO: styled
@@ -31,7 +32,6 @@
   (markups)
   #:transparent)
 
-(define horizontal? horizontal-markup?)
 (define horizontal-markups horizontal-markup-markups)
 
 (define newline (horizontal-markup '()))
@@ -75,7 +75,6 @@
   (markups)
   #:transparent)
 
-(define vertical? vertical-markup?)
 (define vertical-markups vertical-markup-markups)
 
 (define (flatten-vertical markups)
@@ -100,6 +99,8 @@
 (struct framed
   (markup)
   #:transparent)
+
+(define framed-markup? framed?)
 
 (define (flatten-markup markup)
   (cond

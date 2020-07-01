@@ -1,7 +1,7 @@
 #lang racket/base
-(provide horizontal-markup horizontal
+(provide horizontal
          horizontal-markup? horizontal-markups
-         vertical-markup vertical
+         vertical
          vertical-markup? vertical-markups
          empty-markup empty-markup?
          empty-line

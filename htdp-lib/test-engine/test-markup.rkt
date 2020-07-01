@@ -89,7 +89,7 @@
 (define (signature-violations->markup violations)
   (if (pair? violations)
       (vertical (string-constant test-engine-signature-violations)
-                (vertical-markup
+                (apply vertical
                  (map (lambda (violation)
                         (horizontal "        "
                                     (signature-violation->markup violation)))
@@ -190,7 +190,7 @@
 (define (value->markup value)
   (let* ((text (render-value value))
          (lines (string-split text "\n")))
-    (vertical-markup lines)))
+    (apply vertical lines)))
 
 (define (reason->markup fail)
   (cond

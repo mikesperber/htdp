@@ -54,24 +54,24 @@
                     (loop (cdr tabs) (add1 i))))))
           (send frame show #t))))))
 
-(define (insert-markup fragment text src-editor)
+(define (insert-markup markup text src-editor)
   (cond
-    ((string? fragment)
-     (send text insert fragment))
-    ((horizontal? fragment)
-     (for-each (lambda (fragment)
-                 (insert-markup fragment text src-editor))
-               (horizontal-fragments fragment)))
-    ((vertical? fragment)
-     (for-each (lambda (fragment)
-                 (insert-markup fragment text src-editor)
+    ((string? markup)
+     (send text insert markup))
+    ((horizontal? markup)
+     (for-each (lambda (markup)
+                 (insert-markup markup text src-editor))
+               (horizontal-markups markup)))
+    ((vertical? markup)
+     (for-each (lambda (markup)
+                 (insert-markup markup text src-editor)
                  (send text insert #\newline))
-               (vertical-fragments fragment)))
-    ((srcloc? fragment)
-     (insert-srcloc fragment text src-editor))
-    ((framed? fragment)
+               (vertical-markups markup)))
+    ((srcloc? markup)
+     (insert-srcloc markup text src-editor))
+    ((framed? markup)
      (insert-framed (lambda (text)
-                      (insert-markup (framed-fragment fragment) text src-editor))
+                      (insert-markup (framed-markup markup) text src-editor))
                     text src-editor))))
 
 (define framed-text%
@@ -90,14 +90,14 @@
     (send text insert snip)))
 
 ;; for development
-(define (display-fragment fragment)
+(define (display-markup markup)
   (let* ((frame (new frame%
-                     [label "Fragment"]
+                     [label "Markup"]
                      [width 600] [height 400]))
          (text (new text%))
          (canvas (new editor-canvas% [parent frame])))
     (send canvas set-editor text)
-    (insert-markup fragment text text)
+    (insert-markup markup text text)
     (send text lock #t)
     (send frame show #t)))
 
@@ -105,14 +105,14 @@
 (module+ test
   (require rackunit)
 
-  (define (render-fragment-via-text fragment)
+  (define (render-markup-via-text markup)
     (let ((text (new text%)))
-      (insert-markup fragment text #f)
+      (insert-markup markup text #f)
       (send text get-text 0 'eof #t)))
 
-  (check-equal? (render-fragment-via-text "foo")
+  (check-equal? (render-markup-via-text "foo")
                 "foo"
                 "String via text")
-  (check-equal? (render-fragment-via-text (horizontal "foo" (framed "bar") "baz"))
+  (check-equal? (render-markup-via-text (horizontal "foo" (framed "bar") "baz"))
                 "foobarbaz"
                 "Framed via text"))

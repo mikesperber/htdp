@@ -155,35 +155,35 @@
 (define (format->markup format-string . vals)
   (let loop ((chars (string->list format-string))
              (vals vals)
-             (rev-fragments '())
+             (rev-markups '())
              (rev-lines '()))
     (cond
       ((null? chars)
        (apply vertical
-              (reverse (cons (apply horizontal (reverse rev-fragments))
+              (reverse (cons (apply horizontal (reverse rev-markups))
                              (reverse rev-lines))))) ; this will normalize
       ((char=? (car chars) #\~)
        (case (cadr chars)
          ((#\n #\~) (loop (cddr chars) vals
                           '()
-                          (cons (apply horizontal (reverse rev-fragments))
+                          (cons (apply horizontal (reverse rev-markups))
                                 rev-lines)))
          ((#\F #\f)
           (loop (cddr chars)
                 (cdr vals)
-                (cons (framed (render-value (car vals))) rev-fragments)
+                (cons (framed (render-value (car vals))) rev-markups)
                 rev-lines))
          (else
           (loop (cddr chars)
                 (cdr vals)
-                (cons (format (string #\~ (cadr chars)) (car vals)) rev-fragments)
+                (cons (format (string #\~ (cadr chars)) (car vals)) rev-markups)
                 rev-lines))))
       (else
        (let inner-loop ((chars chars)
                         (rev-seen '()))
          (if (or (null? chars)
                  (char=? (car chars) #\~))
-             (loop chars vals (cons (list->string (reverse rev-seen)) rev-fragments) rev-lines)
+             (loop chars vals (cons (list->string (reverse rev-seen)) rev-markups) rev-lines)
              (inner-loop (cdr chars) (cons (car chars) rev-seen))))))))
 
 (define (reason->markup fail)

@@ -15,14 +15,14 @@
         (render-value-proc (render-value-parameter)))
     (cond
      [(and display-rep display-event-space)
-      (parameterize ([(dynamic-require 'mred/mred 'current-eventspace) display-event-space])
-	((dynamic-require 'mred/mred 'queue-callback)
+      (parameterize ([current-eventspace display-event-space])
+	(queue-callback
 	 (lambda ()
            (parameterize ([render-value-parameter render-value-proc])
              (send display-rep display-test-results test-display)))))]
      [display-event-space 
-      (parameterize ([(dynamic-require 'mred/mred 'current-eventspace) display-event-space])
-	((dynamic-require 'mred/mred 'queue-callback)
+      (parameterize ([current-eventspace display-event-space])
+	(queue-callback
          (lambda ()
            (parameterize ([render-value-parameter render-value-proc])
              (send test-display display-results)))))]

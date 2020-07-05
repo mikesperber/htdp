@@ -5,6 +5,8 @@
          vertical-markup? vertical-markups
          empty-markup empty-markup?
          empty-line
+         srcloc-markup srcloc-markup?
+         srcloc-markup-srcloc srcloc-markup->markup
          framed
          framed-markup? framed-markup
          markup?
@@ -19,7 +21,7 @@
       (empty? x)
       (horizontal-markup? x)
       (vertical-markup? x)
-      (srcloc? x)
+      (srcloc-markup? x)
       (framed? x)))
 
 (struct empty
@@ -98,6 +100,14 @@
       (else
        (vertical-markup markups)))))
 
+(struct srcloc-markup
+  (srcloc markup-function))
+
+(define srcloc-markup->markup
+  (lambda (srcloc-markup)
+    ((srcloc-markup-markup-function srcloc-markup)
+     (srcloc-markup-srcloc srcloc-markup))))
+
 (struct framed
   (markup)
   #:transparent)
@@ -110,8 +120,8 @@
     ((horizontal-markup? markup)
      (apply string-append
             (map flatten-markup (horizontal-markup-markups markup))))
-    ((srcloc? markup)
-     (srcloc->string markup))
+    ((srcloc-markup? markup)
+     (flatten-markup (srcloc-markup->markup markup)))
     ((framed? markup)
      (flatten-markup (framed-markup markup)))))
     
@@ -183,8 +193,8 @@
     ((vertical-markup? markup)
      (normalize-lines
       (append-map markup->block (vertical-markup-markups markup))))
-    ((srcloc? markup)
-     (list (srcloc->string markup)))
+    ((srcloc-markup? markup)
+     (markup->block (srcloc-markup->markup markup)))
     ((framed? markup)
      (block-box (markup->block (framed-markup markup))))))
 
@@ -211,19 +221,6 @@
   (check-equal? (block-box (list "xxx" "yyy" "zzz"))
                 '("┌─────┐" "│ xxx │" "│ yyy │" "│ zzz │" "└─────┘"))
 
-  (check-equal? (markup->block (horizontal "foo" "bar"
-                                             (framed "baz")
-                                             "bam" "wup"))
-                '("      ┌─────┐      " "foobar│ baz │bamwup" "      └─────┘      "))
-  
-  (check-equal? (markup->block (horizontal "foo" "bar"
-                                             (framed "baz")
-                                             (vertical "bam" (framed "wup"))))
-                '("      ┌─────┐bam    "
-                  "foobar│ baz │┌─────┐"
-                  "      └─────┘│ wup │"
-                  "             └─────┘"))
-  
   (check-equal? (horizontal "foo" "bar" "baz")
                 "foobarbaz")
   (check-equal? (horizontal "foo" "bar"
@@ -256,6 +253,23 @@
                 "String")
   (check-equal? (flatten-markup (horizontal "foo" "bar" "baz"))
                 "foobarbaz"
-                "List of strings"))
+                "List of strings")
+
+  (check-equal? (markup->block (horizontal "foo" "bar"
+                                           (framed "baz")
+                                             "bam" "wup"))
+                '("      ┌─────┐      " "foobar│ baz │bamwup" "      └─────┘      "))
+  
+  (check-equal? (markup->block (horizontal "foo" "bar"
+                                           (framed "baz")
+                                             (vertical "bam" (framed "wup"))))
+                '("      ┌─────┐bam    "
+                  "foobar│ baz │┌─────┐"
+                  "      └─────┘│ wup │"
+                  "             └─────┘"))
+  (check-equal? (markup->block (srcloc-markup (srcloc "source" 12 25 100 200)
+                                              srcloc->string))
+                '("source:12:25"))
+)
   
   

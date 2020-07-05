@@ -7,9 +7,10 @@
          framework)
 
 ; src-editor can be #f
-(define (insert-srcloc srcloc text src-editor)
-  (let ((start (send text get-end-position)))
-    (send text insert (srcloc->string srcloc))
+(define (insert-srcloc-markup srcloc-markup text src-editor)
+  (let ((srcloc (srcloc-markup-srcloc srcloc-markup))
+        (start (send text get-end-position)))
+    (insert-markup (srcloc-markup->markup srcloc-markup) text src-editor)
     (when src-editor
       (send text set-clickback
             start (send text get-end-position)
@@ -67,8 +68,8 @@
                  (insert-markup markup text src-editor)
                  (send text insert #\newline))
                (vertical-markups markup)))
-    ((srcloc? markup)
-     (insert-srcloc markup text src-editor))
+    ((srcloc-markup? markup)
+     (insert-srcloc-markup markup text src-editor))
     ((framed-markup? markup)
      (insert-framed (framed-markup markup) text src-editor))))
 

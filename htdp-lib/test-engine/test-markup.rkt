@@ -111,7 +111,8 @@
   (horizontal
    (reason->markup reason)
    ;; FIXME: display-link - specifically format-src used there - does something fancier
-   (list->srcloc dest)))
+   (srcloc-markup (list->srcloc dest)
+                  srcloc->string)))
 
 ; keep this for reference:
 #|
